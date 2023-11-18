@@ -68,27 +68,43 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     float ring_t = 0.0;
     float dRing = sdCircleXZ(p, r, ring_t);
     
+    p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
+    
     float d = dRing;
     // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
-    //if (dRing < 0.2) // approx bounding ring
-    //{    
-        vec3 ring_uv = vec3(ring_t * TAU * r, p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time), dRing);
-        //vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
+    if (dRing < 0.8) // approx bounding ring
+    {    
+        //vec3 ring_uv = vec3(ring_t * TAU * r, p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time), dRing);
+        vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
         d = sdSwirl(ring_uv, r, c, f, id);
-    //}
+    }
     
+    // 紙垂 Shide
+    {
+    vec3 q = p;
     const float an = TAU/7.0;
     float sector = round(atan(p.z,p.x)/an);
     float angrot = sector*an;
-    vec3 q = p;
     q.xz *= rot(angrot);
+    d = min(d, sdShide(q - vec3(r + c, -2.*c, 0.0), 4));
+    }
     
-    //d = min(d, sdShide(q - vec3(r + 2.*c, -2.*c, 0.0), 4));
+    // 切られた縄 Kiraretanawa
+    {
+    // I think this rotation could be done in one go, but my brain is a mess thinking about the domain repetition here -.-
+    vec3 q_s = p;
     
-    vec3 o = p;
-    o.xz *= rot(angrot);
-
-    //d = min(d, sdKiraretanawa(o - vec3(r, -1.8*c, 0.0), 0.14));
+    // Prerotate offset
+    float an = TAU/14.0;
+    float co = cos(an), si = sin(an);
+    q_s.xz *= rot(an);
+    
+    an = TAU/7.0;
+    float sector = round(atan(q_s.z,q_s.x)/an);
+    float angrot = sector*an;
+    q_s.xz *= rot(angrot);
+    d = min(d, sdKiraretanawa(q_s - vec3(r, -1.8*c, 0.0), 0.14));
+    }
     
     return d;
 }
@@ -119,7 +135,6 @@ vec4 map( in vec3 p, float time )
     float t = sdTree(p, 0.40, 0.40);
     float r_id;
     float r = sdShimenawa(p + vec3(.0, .1, .0), 0.4615, 0.04, 10.0, time, r_id);
-    //float r = sdShimenawa(p, 0.18, 0.02);
     
     float d = min(t, r);
     
@@ -199,7 +214,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         #endif
 
 	    // camera & movement
-        float an = 6.2831*time/40.0;
+        float an = TAU*time/40.0;
         vec3 ta = vec3( 0.0, 0.0, 0.0 );
         
         vec2 m = iMouse.xy / iResolution.xy-.5;
