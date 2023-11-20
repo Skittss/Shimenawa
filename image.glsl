@@ -4,33 +4,55 @@
 
 #define USE_DEBUG_CAMERA 1
 
+const vec3 _ShideWindParams = vec3(0.18, 4.0, 1.75);
+const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
+
 float layeredPerlin1D()
 {
     return 1.0;
 }
 
-float sdShide( in vec3 p, in int s_n )
+float sdShide( in vec3 p, in int s_n, in float id )
 {
     // 紙垂 multiple zig-zag boxes
     // 紙で作られているから、ちょっとSSS必要あり。
     
+    
     // 全物体を４５C回る
     p.yz = (p.yz + vec2(p.z, -p.y))*sqrt(0.5); // Shortcut for 45-degrees rotation
 
+    // 大きさ
     vec3 dim = 0.02 * vec3(0.03, 1.0, 2.0); // 2:1:0.1 ratio
     vec3 smallDim = dim;
     smallDim.y /= 2.0;
     smallDim.z *= 1.3;
     
-    // Thinner box, mount to rope
-    //  TODO: Apply cosine warp to this
-    float d = sdBox(p + vec3(.0, -1.5 * dim.y, 1.3 * dim.z), smallDim);
+    //vec3 shidePos = p - vec3(0.0, 1.5 * dim.y, 0.0);
+        
+    //shidePos += 0.1* sin(shidePos * 3.0 + iTime) * distToConnector;
+       
+    // 風から動きの準備
+    // 垂直動きが欲しいので、回りの後でする。
+    // 接続点から距離を使って動きの強さが決まる
+    vec3 connectorPos = vec3(0., 2.0 * dim.y, -1.5 * dim.z);
+    float distToConnector = length(connectorPos - p);
+
+    // Thinner box, mount to rope    
+    
+    vec3 thinShidePos = p + vec3(.0, -1.5 * dim.y, 1.3 * dim.z);
+    // 動かす - Sinusoidal motion
+    thinShidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * id) * distToConnector;
+    float d = sdBox(thinShidePos, smallDim);
     
     // Zig-zag - domain repetition is a viable option here but I'm not sure how to
     //   ensure the sdf remains correct when applying a stepwise shift in the domain
+    
     for (int i=0; i<s_n; i++)
     {
-        d = min(d, sdBox(p + vec3(-1.8 * dim.x * mod(float(i+1), 2.0), 2.0 * dim.y * float(i), -dim.z * float(i)), dim));
+        vec3 shidePos = p + vec3(-2.0 * dim.x * mod(float(i+1), 2.0), 2.0 * dim.y * float(i), -dim.z * float(i));
+        shidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * id) * distToConnector;
+        shidePos.x += _ShideWindParams_s.x * sin(distToConnector * _ShideWindParams_s.y + _ShideWindParams_s.z * iTime + 13.0 * id) * distToConnector;
+        d = min(d, sdBox(shidePos, dim));
     }
     
     return d;
@@ -68,7 +90,7 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     float ring_t = 0.0;
     float dRing = sdCircleXZ(p, r, ring_t);
     
-    p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
+    //p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
     
     float d = dRing;
     // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
@@ -79,17 +101,15 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
         d = sdSwirl(ring_uv, r, c, f, id);
     }
     
-    // 紙垂 Shide
     {
     vec3 q = p;
     const float an = TAU/7.0;
     float sector = round(atan(p.z,p.x)/an);
     float angrot = sector*an;
     q.xz *= rot(angrot);
-    d = min(d, sdShide(q - vec3(r + c, -2.*c, 0.0), 4));
+    d = min(d, sdShide(q - vec3(r + c, -2.*c, 0.0), 4, sector+1.0));
     }
     
-    // 切られた縄 Kiraretanawa
     {
     // I think this rotation could be done in one go, but my brain is a mess thinking about the domain repetition here -.-
     vec3 q_s = p;
@@ -134,8 +154,9 @@ vec4 map( in vec3 p, float time )
 {
     float t = sdTree(p, 0.40, 0.40);
     float r_id;
-    float r = sdShimenawa(p + vec3(.0, .1, .0), 0.4615, 0.04, 10.0, time, r_id);
-    
+    //float r = sdShimenawa(p + vec3(.0, .1, .0), 0.4615, 0.04, 10.0, time, r_id);
+    float r = sdShimenawa(p, 0.4615, 0.04, 10.0, time, r_id);
+        
     float d = min(t, r);
     
     return vec4(r, p);
@@ -179,7 +200,7 @@ vec4 intersect( in vec3 ro, in vec3 rd, in float time )
         {
             vec4 h = map(ro+t*rd,time);
             if( h.x<0.001 ) { res=vec4(t,h.yzw); break; }
-            t += h.x;
+            t += 0.9 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
         }
     }
     
