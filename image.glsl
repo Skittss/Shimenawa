@@ -4,7 +4,7 @@
 
 #define USE_DEBUG_CAMERA 1
 
-const vec3 _ShideWindParams = vec3(0.18, 4.0, 1.75);
+const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75);
 const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
 
 float layeredPerlin1D()
@@ -25,7 +25,7 @@ float sdShide( in vec3 p, in int s_n, in float id )
     vec3 dim = 0.02 * vec3(0.03, 1.0, 2.0); // 2:1:0.1 ratio
     vec3 smallDim = dim;
     smallDim.y /= 2.0;
-    smallDim.z *= 1.3;
+    smallDim.z *= 0.9;
     
     //vec3 shidePos = p - vec3(0.0, 1.5 * dim.y, 0.0);
         
@@ -39,7 +39,7 @@ float sdShide( in vec3 p, in int s_n, in float id )
 
     // Thinner box, mount to rope    
     
-    vec3 thinShidePos = p + vec3(.0, -1.5 * dim.y, 1.3 * dim.z);
+    vec3 thinShidePos = p + vec3(.0, -1.5 * dim.y, 0.9 * dim.z);
     // 動かす - Sinusoidal motion
     thinShidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * id) * distToConnector;
     float d = sdBox(thinShidePos, smallDim);
@@ -60,9 +60,19 @@ float sdShide( in vec3 p, in int s_n, in float id )
 
 // p is position of top, s is scale
 float sdKiraretanawa( in vec3 p, in float s )
-{    
-    float d = sdCone(p + s * vec3(0., 0.6, 0.), vec3(0.), s * vec3(0.,0.5,0.), s * 0.4, s * 0.1) - s * 0.03;
-    d = min(d, sdCappedCylinder(p, s * 0.06, s * 0.15) - s * 0.015);
+{
+    // TODO: is diving multiplying d by s at the end equivalent of this scaling??
+    
+    float d = sdCone(p + s * vec3(0., 0.6, 0.), vec3(0.), s * vec3(0.,0.5,0.), s * 0.32, s * 0.1) - s * 0.05;
+    d = min(d, sdCappedCylinder(p, s * 0.06, s * 0.12) - s * 0.015);
+    
+    {
+    // 縛り縄 - Binding rope, 3 for cost of 1
+    vec3 q = p;
+    q.y = abs(p.y + s * 0.02) - s * 0.0165; // XZ plane symmetry for duplication, and translate downwards
+    q.y = abs(q.y) - s * 0.0165;
+    d = min(d, sdTorus(q, vec2(s * 0.15, s * 0.013)));
+    }
     
     return d;
 }
