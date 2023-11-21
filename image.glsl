@@ -2,10 +2,12 @@
 #define PI 3.14159265
 #define TAU 6.2831853
 
-#define USE_DEBUG_CAMERA 1
+#define USE_DEBUG_CAMERA 0
 
-const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75);
+const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
 const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
+const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim speed
+const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 
 float layeredPerlin1D()
 {
@@ -59,10 +61,15 @@ float sdShide( in vec3 p, in int s_n, in float id )
 }
 
 // p is position of top, s is scale
-float sdKiraretanawa( in vec3 p, in float s )
+float sdKiraretanawa( in vec3 p, in float s, in float connectorOffset, in float id )
 {
-    // TODO: is diving multiplying d by s at the end equivalent of this scaling??
-    
+    // Offset rotation to make object sway
+    p.yz *= rot(_KiraretanawaWindParamsYZ.x * sin(_KiraretanawaWindParamsYZ.y * 0.89 * iTime + 71.0 * id));
+    p.yx *= rot(_KiraretanawaWindParamsYX.x * cos(_KiraretanawaWindParamsYX.y * 0.57 * iTime + 31.0 * id));
+    p.y += connectorOffset;
+
+    // TODO: is diving multiplying d by s at the end equivalent to this scaling??
+        
     float d = sdCone(p + s * vec3(0., 0.6, 0.), vec3(0.), s * vec3(0.,0.5,0.), s * 0.32, s * 0.1) - s * 0.05;
     d = min(d, sdCappedCylinder(p, s * 0.06, s * 0.12) - s * 0.015);
     
@@ -73,6 +80,9 @@ float sdKiraretanawa( in vec3 p, in float s )
     q.y = abs(q.y) - s * 0.0165;
     d = min(d, sdTorus(q, vec2(s * 0.15, s * 0.013)));
     }
+    
+    // 接続縄 - Connecting rope
+    d = min(d, sdCappedCylinder(p - vec3(0.0, connectorOffset/2.0, 0.0), connectorOffset, s * 0.013));
     
     return d;
 }
@@ -133,7 +143,7 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     float sector = round(atan(q_s.z,q_s.x)/an);
     float angrot = sector*an;
     q_s.xz *= rot(angrot);
-    d = min(d, sdKiraretanawa(q_s - vec3(r, -1.8*c, 0.0), 0.14));
+    d = min(d, sdKiraretanawa(q_s - vec3(r, -1.4*c, 0.0), 0.14, 0.05, sector+1.0));
     }
     
     return d;
@@ -260,7 +270,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         }
         #else
         //ro = ta + vec3( 1.5*cos(an), 0.3, 1.5*sin(an) );
-        ro = ta + vec3( 0.56*cos(an), -0.3, 0.56*sin(an) );
+        ro = ta + vec3( cos(an), -0.3, sin(an) );
         //ro = ta + vec3( 0.001, 2.0, 0.0 );
         #endif
         
