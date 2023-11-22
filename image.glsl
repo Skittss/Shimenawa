@@ -2,12 +2,14 @@
 #define PI 3.14159265
 #define TAU 6.2831853
 
-#define USE_DEBUG_CAMERA 0
+#define USE_DEBUG_CAMERA 1
 
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
 const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
 const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim speed
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
+
+const vec3 _LightDir = vec3(1.0, 1.0, 1.0);
 
 float layeredPerlin1D()
 {
@@ -207,6 +209,27 @@ vec3 calcNormal( in vec3 pos, in float time )
 #endif    
 }
 
+// https://iquilezles.org/articles/rmshadows
+// Better quality, less banding.
+float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w, in float time )
+{
+    float res = 1.0;
+    float ph = 1e20;
+    float t = mint;
+    for( int i=0; i<256 && t<maxt; i++ )
+    {
+        float h = map(ro + rd*t, time).x;
+        if( h<0.001 )
+            return 0.0;
+        float y = h*h/(2.0*ph);
+        float d = sqrt(h*h-y*y);
+        res = min( res, d/(w*max(0.0,t-y)) );
+        ph = h;
+        t += 0.8*h;
+    }
+    return res;
+}
+
 vec4 intersect( in vec3 ro, in vec3 rd, in float time )
 {
     vec4 res = vec4(-1.0);
@@ -221,12 +244,34 @@ vec4 intersect( in vec3 ro, in vec3 rd, in float time )
         {
             vec4 h = map(ro+t*rd,time);
             if( h.x<0.001 ) { res=vec4(t,h.yzw); break; }
-            t += 0.9 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
+            t += 0.8 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
                             //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
         }
     }
     
     return res;
+}
+
+vec3 render ( in vec3 ro, in vec3 rd, in float time ) 
+{
+    // background
+    vec3 col = vec3(1.0+rd.y)*0.03;
+
+    // raymarch geometry
+    vec4 tuvw = intersect( ro, rd, time );
+    if( tuvw.x>0.0 )
+    {
+        // shading/lighting	
+        vec3 pos = ro + tuvw.x*rd;
+        vec3 nor = calcNormal(pos, time);
+        float shadow = softShadow(pos + 0.001*nor, _LightDir, 0.0, 1.0, 128.0, time);
+
+        col = 0.5 + 0.5*nor;
+        col = mix(vec3(0.0), col, shadow);
+        //col = vec3(shadow);
+    }
+    
+    return col;
 }
 
 mat3 setCamera( in vec3 ro, in vec3 ta, float cr )
@@ -253,7 +298,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         float time = iTime;
         #else    
         vec2 p = (2.0*fragCoord-iResolution.xy)/iResolution.y;
-        float time = 1.0*iTime;
+        float time = iTime;
         #endif
 
 	    // camera & movement
@@ -282,21 +327,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         // ray direction
         float fl = 2.0;
         vec3 rd = ca * normalize( vec3(p,fl) );
-
-        // background
-        vec3 col = vec3(1.0+rd.y)*0.03;
         
-        // raymarch geometry
-        vec4 tuvw = intersect( ro, rd, time );
-        if( tuvw.x>0.0 )
-        {
-            // shading/lighting	
-            vec3 pos = ro + tuvw.x*rd;
-            vec3 nor = calcNormal(pos, time);
-                        
-            col = 0.5 + 0.5*nor;
-        }
-        
+        vec3 col = render( ro, rd, time );
         
         // gamma        
 	    tot += pow(col,vec3(0.45) );
