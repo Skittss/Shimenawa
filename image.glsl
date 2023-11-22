@@ -109,6 +109,7 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
 {
     float ring_t = 0.0;
     float dRing = sdCircleXZ(p, r, ring_t);
+    ring_t = 1.0 - ring_t; // reflect rope
     
     //p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
     
@@ -127,7 +128,7 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     float sector = round(atan(p.z,p.x)/an);
     float angrot = sector*an;
     q.xz *= rot(angrot);
-    d = min(d, sdShide(q - vec3(r + c, -2.*c, 0.0), 4, sector+1.0));
+    d = min(d, sdShide(q - vec3(r + 0.4*c, -2.3*c, 0.0), 4, sector+1.0));
     }
     
     {
@@ -221,6 +222,7 @@ vec4 intersect( in vec3 ro, in vec3 rd, in float time )
             vec4 h = map(ro+t*rd,time);
             if( h.x<0.001 ) { res=vec4(t,h.yzw); break; }
             t += 0.9 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
+                            //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
         }
     }
     
