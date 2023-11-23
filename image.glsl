@@ -1,4 +1,4 @@
-#define AA 2
+#define AA 1
 #define PI 3.14159265
 #define TAU 6.2831853
 
@@ -9,7 +9,7 @@ const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
 const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim speed
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 
-const vec3 _LightDir = vec3(1.0, 1.0, 1.0);
+const vec3 _LightDir = normalize(vec3(2.0, 1.0, 2.0));
 
 float layeredPerlin1D()
 {
@@ -115,15 +115,19 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     
     //p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
     
-    float d = dRing;
-    // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
+    //float d = dRing;
+    float d = 1e10;
+    #if 1
     if (dRing < 0.8) // approx bounding ring
     {    
+        // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
         //vec3 ring_uv = vec3(ring_t * TAU * r, p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time), dRing);
         vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
         d = sdSwirl(ring_uv, r, c, f, id);
     }
+    #endif
     
+    #if 1
     {
     vec3 q = p;
     const float an = TAU/7.0;
@@ -132,7 +136,9 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     q.xz *= rot(angrot);
     d = min(d, sdShide(q - vec3(r + 0.4*c, -2.3*c, 0.0), 4, sector+1.0));
     }
+    #endif
     
+    #if 1
     {
     // I think this rotation could be done in one go, but my brain is a mess thinking about the domain repetition here -.-
     vec3 q_s = p;
@@ -148,6 +154,7 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     q_s.xz *= rot(angrot);
     d = min(d, sdKiraretanawa(q_s - vec3(r, -1.4*c, 0.0), 0.14, 0.05, sector+1.0));
     }
+    #endif
     
     return d;
 }
@@ -213,21 +220,27 @@ vec3 calcNormal( in vec3 pos, in float time )
 // Better quality, less banding.
 float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w, in float time )
 {
-    float res = 1.0;
-    float ph = 1e20;
+	float res = 1.0;
     float t = mint;
-    for( int i=0; i<256 && t<maxt; i++ )
+    float ph = 1e10; // big, such that y = 0 on the first iteration
+    
+    for( int i=0; i<32; i++ )
     {
-        float h = map(ro + rd*t, time).x;
-        if( h<0.001 )
-            return 0.0;
+        // TODO: Mapping of big rope is problematic, separate out conservative step.
+		float h = map( ro + rd*t, time ).x;
         float y = h*h/(2.0*ph);
         float d = sqrt(h*h-y*y);
         res = min( res, d/(w*max(0.0,t-y)) );
         ph = h;
-        t += 0.8*h;
+        
+        // TODO: Apply this conservative step ONLY to the rope
+        t += 0.75*h;
+        
+        if( res < 0.0001 || t > maxt ) break;
+        
     }
-    return res;
+    res = clamp( res, 0.0, 1.0 );
+    return res*res*(3.0-2.0*res);
 }
 
 vec4 intersect( in vec3 ro, in vec3 rd, in float time )
@@ -243,7 +256,7 @@ vec4 intersect( in vec3 ro, in vec3 rd, in float time )
         for( int i=0; i<128 && t<tminmax.y; i++ )
         {
             vec4 h = map(ro+t*rd,time);
-            if( h.x<0.001 ) { res=vec4(t,h.yzw); break; }
+            if( abs(h.x)<0.001 ) { res=vec4(t,h.yzw); break; }
             t += 0.8 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
                             //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
         }
@@ -264,7 +277,7 @@ vec3 render ( in vec3 ro, in vec3 rd, in float time )
         // shading/lighting	
         vec3 pos = ro + tuvw.x*rd;
         vec3 nor = calcNormal(pos, time);
-        float shadow = softShadow(pos + 0.001*nor, _LightDir, 0.0, 1.0, 128.0, time);
+        float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 1.0, time);
 
         col = 0.5 + 0.5*nor;
         col = mix(vec3(0.0), col, shadow);
