@@ -2,14 +2,33 @@
 #define PI 3.14159265
 #define TAU 6.2831853
 
-#define USE_DEBUG_CAMERA 1
+#define USE_DEBUG_CAMERA 0
 
+// Sky
+
+// Rope Params
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
 const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
 const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim speed
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 
+// Materials
+#define MAT_ROPE 1.0
+#define MAT_SHIDE 2.0
+const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
+const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
+
+// Illumination
 const vec3 _LightDir = normalize(vec3(2.0, 1.0, 2.0));
+
+// Util
+#define CMP_MAT_LT(a, b) a < (b + 0.5)
+#define CMP_MAT_GT(a, b) a > (b - 0.5)
+
+vec2 MIN_MAT(vec2 a, vec2 b)
+{
+    return (a.x < b.x) ? a : b;
+}
 
 float layeredPerlin1D()
 {
@@ -107,23 +126,23 @@ float sdSwirl(vec3 p, in float r, in float c, in float f, out float id)
     return d;
 }
 
-float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, out float id)
+vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
 {
+    vec2 res = vec2(1e10);
+
     float ring_t = 0.0;
     float dRing = sdCircleXZ(p, r, ring_t);
-    ring_t = 1.0 - ring_t; // reflect rope
+    ring_t = 1.0 - ring_t; // reflect rope direction
     
     //p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
     
-    //float d = dRing;
-    float d = 1e10;
     #if 1
     if (dRing < 0.8) // approx bounding ring
     {    
         // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
         //vec3 ring_uv = vec3(ring_t * TAU * r, p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time), dRing);
         vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
-        d = sdSwirl(ring_uv, r, c, f, id);
+        res = vec2(sdSwirl(ring_uv, r, c, f, id), MAT_ROPE);
     }
     #endif
     
@@ -134,7 +153,8 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     float sector = round(atan(p.z,p.x)/an);
     float angrot = sector*an;
     q.xz *= rot(angrot);
-    d = min(d, sdShide(q - vec3(r + 0.4*c, -2.3*c, 0.0), 4, sector+1.0));
+    float d = sdShide(q - vec3(r + 0.4*c, -2.3*c, 0.0), 4, sector+1.0);
+    res = MIN_MAT(res, vec2(d, MAT_SHIDE));
     }
     #endif
     
@@ -152,11 +172,12 @@ float sdShimenawa(in vec3 p, in float r, in float c, in float f, in float time, 
     float sector = round(atan(q_s.z,q_s.x)/an);
     float angrot = sector*an;
     q_s.xz *= rot(angrot);
-    d = min(d, sdKiraretanawa(q_s - vec3(r, -1.4*c, 0.0), 0.14, 0.05, sector+1.0));
+    float d = sdKiraretanawa(q_s - vec3(r, -1.4*c, 0.0), 0.14, 0.05, sector+1.0);
+    res = MIN_MAT(res, vec2(d, MAT_ROPE));
     }
     #endif
     
-    return d;
+    return res;
 }
 
 float sdBark( in vec3 p, in float h, in float r, in float d, in float w, in float n, in float phase)
@@ -171,46 +192,52 @@ float sdBark( in vec3 p, in float h, in float r, in float d, in float w, in floa
     return sdBox(q-vec3(r, 0.0, 0.01*cos(50.0*q.y)), vec3(w, h, d)) - 0.001;
 }
 
-float sdTree( in vec3 p, in float h, in float r)
+vec2 sdTree( in vec3 p, in float h, in float r )
 {
+    float m = -1.0;
+
     float db = sdBark(p, h, r, 0.0025, 0.005, 24.0, 0.0);
     db = min(db, sdBark(p, h, r, 0.001, 0.005, 12.0, 0.17));
     float dTree = sdCappedCylinder(p, h, r) - 0.001;
     
-    return min(dTree, db);
+    return vec2(min(dTree, db), m);
 }
 
-vec4 map( in vec3 p, float time )
-{
-    float t = sdTree(p, 0.40, 0.40);
-    float r_id;
-    //float r = sdShimenawa(p + vec3(.0, .1, .0), 0.4615, 0.04, 10.0, time, r_id);
-    float r = sdShimenawa(p, 0.4615, 0.04, 10.0, time, r_id);
-        
-    float d = min(t, r);
+vec2 map( in vec3 p )
+{    
+    vec2 res = vec2(1e10); // (Distance, Material)
     
-    return vec4(r, p);
+    #if 0
+    res = sdTree(p, 0.40, 0.40);
+    #endif
+    
+    #if 1
+    float r_id;
+    res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
+    #endif
+           
+    return res; // returns (distance, material) pair.
 }
 
 #define ZERO min(iFrame,0)
 
 // https://iquilezles.org/articles/normalsSDF
-vec3 calcNormal( in vec3 pos, in float time )
+vec3 calcNormal( in vec3 pos )
 {
 #if 0
     vec2 e = vec2(1.0,-1.0)*0.5773;
     const float eps = 0.00025;
-    return normalize( e.xyy*map( pos + e.xyy*eps, time ).x + 
-					  e.yyx*map( pos + e.yyx*eps, time ).x + 
-					  e.yxy*map( pos + e.yxy*eps, time ).x + 
-					  e.xxx*map( pos + e.xxx*eps, time ).x );
+    return normalize( e.xyy*map( pos + e.xyy*eps ).x + 
+					  e.yyx*map( pos + e.yyx*eps ).x + 
+					  e.yxy*map( pos + e.yxy*eps ).x + 
+					  e.xxx*map( pos + e.xxx*eps ).x );
 #else
     // klems's trick to prevent the compiler from inlining map() 4 times
     vec3 n = vec3(0.0);
     for( int i=ZERO; i<4; i++ )
     {
         vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
-        n += e*map(pos+0.0005*e,time).x;
+        n += e*map(pos+0.0005*e).x;
     }
     return normalize(n);
 #endif    
@@ -218,7 +245,7 @@ vec3 calcNormal( in vec3 pos, in float time )
 
 // https://iquilezles.org/articles/rmshadows
 // Better quality, less banding.
-float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w, in float time )
+float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w )
 {
 	float res = 1.0;
     float t = mint;
@@ -227,7 +254,7 @@ float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w, in fl
     for( int i=0; i<32; i++ )
     {
         // TODO: Mapping of big rope is problematic, separate out conservative step.
-		float h = map( ro + rd*t, time ).x;
+		float h = map( ro + rd*t ).x;
         float y = h*h/(2.0*ph);
         float d = sqrt(h*h-y*y);
         res = min( res, d/(w*max(0.0,t-y)) );
@@ -243,9 +270,9 @@ float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w, in fl
     return res*res*(3.0-2.0*res);
 }
 
-vec4 intersect( in vec3 ro, in vec3 rd, in float time )
+vec2 intersect( in vec3 ro, in vec3 rd )
 {
-    vec4 res = vec4(-1.0);
+    vec2 res = vec2(-1.0);
     
     // bounding sphere
     vec2 tminmax = iSphere( ro, rd, 1000.0 );
@@ -255,8 +282,8 @@ vec4 intersect( in vec3 ro, in vec3 rd, in float time )
         float t = max(tminmax.x,0.001);
         for( int i=0; i<128 && t<tminmax.y; i++ )
         {
-            vec4 h = map(ro+t*rd,time);
-            if( abs(h.x)<0.001 ) { res=vec4(t,h.yzw); break; }
+            vec2 h = map(ro+t*rd);
+            if( abs(h.x)<0.001 ) { res=vec2(t, h.y); break; }
             t += 0.8 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
                             //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
         }
@@ -265,23 +292,39 @@ vec4 intersect( in vec3 ro, in vec3 rd, in float time )
     return res;
 }
 
-vec3 render ( in vec3 ro, in vec3 rd, in float time ) 
+vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m ) 
+{
+    vec3 pos = ro + t*rd;
+    vec3 nor = calcNormal(pos);
+
+    else if (CMP_MAT_LT(m, MAT_ROPE)) 
+    {
+        return _MatRope;
+    }
+    else if (CMP_MAT_LT(m, MAT_SHIDE))
+    {
+        return _MatShide;
+    }
+    
+    float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 1.0);
+    
+    vec3 col = vec3(0.0);
+    col = 0.5 + 0.5*nor;
+    col = mix(vec3(0.0), col, shadow);
+
+    return col;
+}
+
+vec3 render ( in vec3 ro, in vec3 rd ) 
 {
     // background
     vec3 col = vec3(1.0+rd.y)*0.03;
 
     // raymarch geometry
-    vec4 tuvw = intersect( ro, rd, time );
-    if( tuvw.x>0.0 )
+    vec2 tm = intersect( ro, rd );
+    if( tm.x>0.0 )
     {
-        // shading/lighting	
-        vec3 pos = ro + tuvw.x*rd;
-        vec3 nor = calcNormal(pos, time);
-        float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 1.0, time);
-
-        col = 0.5 + 0.5*nor;
-        col = mix(vec3(0.0), col, shadow);
-        //col = vec3(shadow);
+        col = shade(ro, rd, tm.x, tm.y);
     }
     
     return col;
@@ -308,14 +351,12 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         vec2 o = vec2(float(m),float(n)) / float(AA) - 0.5;
         vec2 p = (2.0*(fragCoord+o)-iResolution.xy)/iResolution.y;
         float d = 0.5*sin(fragCoord.x*147.0)*sin(fragCoord.y*131.0);
-        float time = iTime;
         #else    
         vec2 p = (2.0*fragCoord-iResolution.xy)/iResolution.y;
-        float time = iTime;
         #endif
 
 	    // camera & movement
-        float an = TAU*time/40.0;
+        float an = TAU*iTime/40.0;
         vec3 ta = vec3( 0.0, 0.0, 0.0 );
         
         vec2 m = iMouse.xy / iResolution.xy-.5;
@@ -341,7 +382,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         float fl = 2.0;
         vec3 rd = ca * normalize( vec3(p,fl) );
         
-        vec3 col = render( ro, rd, time );
+        vec3 col = render( ro, rd );
         
         // gamma        
 	    tot += pow(col,vec3(0.45) );
