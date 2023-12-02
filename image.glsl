@@ -2,7 +2,7 @@
 #define PI 3.14159265
 #define TAU 6.2831853
 
-#define USE_DEBUG_CAMERA 0
+#define USE_DEBUG_CAMERA 1
 
 // Sky
 
@@ -19,11 +19,29 @@ const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 
 // Illumination
+const vec3  _SunPos  = vec3(30.0, 15.0, 30.0);
+//const vec3 _SunPos = vec3(0.2, 56, -40.1);
+
+const float _SunSize = 3.5;
+const vec3  _SunCol  = vec3(0.98, 0.72, 0.31);
+//const vec3  _SunCol  = vec3(0.51471, 0.79919, 1.0);
+
+const vec3 _ZenithCol = vec3(0.37, 0.14, 0.43);
+const vec3 _HorizonCol = vec3(0.36, 0.17, 0.66);
+//const vec3 _HorizonCol = vec3(0.0);
+const vec3 _NadirCol = vec3(0.35, 0.32, 0.8);
+
+const float _ZenithAttenuation = 1.4;
+const float _NadirAttenuation  = 0.8;
+const float _HorizonOffset = 0.0;
+
 const vec3 _LightDir = normalize(vec3(2.0, 1.0, 2.0));
 
 // Util
 #define CMP_MAT_LT(a, b) a < (b + 0.5)
 #define CMP_MAT_GT(a, b) a > (b - 0.5)
+
+//==HELPER FUNC===================================================================================================================================
 
 vec2 MIN_MAT(vec2 a, vec2 b)
 {
@@ -34,6 +52,8 @@ float layeredPerlin1D()
 {
     return 1.0;
 }
+
+//==SDF===========================================================================================================================================
 
 float sdShide( in vec3 p, in int s_n, in float id )
 {
@@ -203,6 +223,31 @@ vec2 sdTree( in vec3 p, in float h, in float r )
     return vec2(min(dTree, db), m);
 }
 
+//==ILLUMINATION================================================================================================================================
+
+vec3 sky( in vec3 ro, in vec3 rd ) 
+{
+    float sunDist = length(_SunPos);
+    float dist = length(_SunPos - (ro + rd * sunDist)) - _SunSize;
+    dist = dist < 0.0 ? 0.0 : dist;
+    
+    float ry = _HorizonOffset + rd.y;
+        
+    float zenith  = 1.0 - pow(min(1.0, 1.0 - ry), _ZenithAttenuation);
+    float nadir   = 1.0 - pow(min(1.0, 1.0 + ry), _NadirAttenuation);
+    float horizon = 1.0 - zenith - nadir;
+    
+    vec3 skycol = zenith * _ZenithCol + nadir * _NadirCol + horizon * _HorizonCol;
+    
+    float halo = pow((3.0/dist), 0.9);
+    vec3 sun = halo * _SunCol;
+    skycol = 1.0 - exp(-(skycol + sun));
+    
+    return skycol;
+}
+
+//==RENDERING===================================================================================================================================
+
 vec2 map( in vec3 p )
 {    
     vec2 res = vec2(1e10); // (Distance, Material)
@@ -297,7 +342,7 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormal(pos);
 
-    else if (CMP_MAT_LT(m, MAT_ROPE)) 
+    if (CMP_MAT_LT(m, MAT_ROPE)) 
     {
         return _MatRope;
     }
@@ -318,7 +363,8 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
 vec3 render ( in vec3 ro, in vec3 rd ) 
 {
     // background
-    vec3 col = vec3(1.0+rd.y)*0.03;
+    //vec3 col = vec3(1.0+rd.y)*0.03;
+    vec3 col = sky(ro, rd);
 
     // raymarch geometry
     vec2 tm = intersect( ro, rd );
@@ -385,7 +431,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         vec3 col = render( ro, rd );
         
         // gamma        
-	    tot += pow(col,vec3(0.45) );
+	    tot += pow(col,vec3(1.0));
     #if AA>1
     }
     tot /= float(AA*AA);
