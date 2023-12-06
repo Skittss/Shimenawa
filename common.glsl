@@ -1,3 +1,37 @@
+// Shadertoy does not support the use of proper float buffers, so we have to store HDR values in the range [0, 1].
+//  Hacky solution, but we can divide through by a max HDR value before to compensate with HDR calculations.
+#define HDR_MAX_COL 25.0
+
+//========================================================
+// POST-PROCESSING PARAMS
+
+// Toggle - Gamma applied either way
+#define POSTPROCESS 1
+
+// HDR
+#define EXPOSURE 1.0
+#define BLOOM_INTENSITY 3.0
+#define BLOOM_THRESHOLD 1.3
+
+// LDR
+#define GAMMA 2.2
+#define BRIGHTNESS -0.05
+#define CONTRAST 1.1
+
+// GT TONEMAP
+#define GT_MAX_BRIGHTNESS 1.00
+#define GT_CONTRAST 1.00
+#define GT_LINEAR_OFFSET 0.22
+#define GT_LINEAR_LENGTH 0.40
+#define GT_BLACK_TIGHTNESS_CURVATURE 1.33
+#define GT_BLACK_TIGHTNESS_OFFSET 0.00
+
+// RENDERING PARAMS
+#define AA 1
+
+//========================================================
+// Util
+
 // https://iquilezles.org/articles/smin
 float smin( float a, float b, float k )
 {
