@@ -40,20 +40,25 @@ vec3 gt_tonemap(vec3 x) {
     return T * w0 + L * w1 + S * w2;
 }
 
+
 vec3 bloom_mipmap(float mipmap_exp, vec2 offset, vec2 uv) 
 {
-    offset.x += 1.0 - 2.0 / exp2(mipmap_exp); // Simplification of 1 - 1/(2^(n-1))
+    // This reverse mapping is inaccurate, and causes slight edge bleeding because no access to more buffers T^T
+    float ds_factor = exp2(mipmap_exp);
+    offset.x += mipmap_exp * BLOOM_MIPMAP_NUDGE + 1.0 - 2.0 / ds_factor; // Simplification of 1 - 1/(2^(n-1))
     
-    return texture(iChannel1, uv * exp2(-mipmap_exp) + offset).rgb;
+    return texture(iChannel1, uv / ds_factor + offset).rgb;
 }
 
 vec3 get_bloom(vec2 uv)
 {
-    vec3 blur = bloom_mipmap(1.0, vec2(0.0, 0.0   ), uv);
-        blur += bloom_mipmap(2.0, vec2(0.0, 0.5   ), uv);
-        blur += bloom_mipmap(3.0, vec2(0.0, 0.75  ), uv);
-        blur += bloom_mipmap(4.0, vec2(0.0, 0.875 ), uv);
-        blur += bloom_mipmap(5.0, vec2(0.0, 0.9375), uv);
+    //vec3 blur = vec3(0.0);
+    
+    vec3 blur = bloom_mipmap(1.0, vec2(0.0), uv);
+        blur += bloom_mipmap(2.0, vec2(0.0), uv);
+        blur += bloom_mipmap(3.0, vec2(0.0), uv);
+        blur += bloom_mipmap(4.0, vec2(0.0), uv);
+        blur += bloom_mipmap(5.0, vec2(0.0), uv);
     
     return blur * colorRange;
 }

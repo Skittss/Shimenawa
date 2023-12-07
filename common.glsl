@@ -29,6 +29,9 @@
 // RENDERING PARAMS
 #define AA 1
 
+// MESS WITH THESE AT YOUR OWN PERIL
+#define BLOOM_MIPMAP_NUDGE 0.005
+
 //========================================================
 // Util
 
