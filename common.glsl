@@ -16,7 +16,7 @@
 // LDR
 #define GAMMA 2.2
 #define BRIGHTNESS -0.05
-#define CONTRAST 1.1
+#define CONTRAST 1.15
 
 // GT TONEMAP
 #define GT_MAX_BRIGHTNESS 1.00

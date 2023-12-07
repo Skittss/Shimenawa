@@ -40,20 +40,21 @@ vec3 gt_tonemap(vec3 x) {
     return T * w0 + L * w1 + S * w2;
 }
 
-vec3 bloomTile(float lod, vec2 offset, vec2 uv){
-    return texture(iChannel1, uv * exp2(-lod) + offset).rgb;
+vec3 bloom_mipmap(float mipmap_exp, vec2 offset, vec2 uv) 
+{
+    offset.x += 1.0 - 2.0 / exp2(mipmap_exp); // Simplification of 1 - 1/(2^(n-1))
+    
+    return texture(iChannel1, uv * exp2(-mipmap_exp) + offset).rgb;
 }
 
-vec3 getBloom(vec2 uv){
-
-    vec3 blur = vec3(0.0);
-
-    blur = bloomTile(2.0, vec2(0.0,0.0), uv)       + blur;
-    blur = bloomTile(3.0, vec2(0.3,0.0), uv) + blur;
-    blur = bloomTile(4.0, vec2(0.0,0.3), uv)  + blur;
-    blur = bloomTile(5.0, vec2(0.1,0.3), uv) + blur;
-    blur = bloomTile(6.0, vec2(0.2,0.3), uv) + blur;
-
+vec3 get_bloom(vec2 uv)
+{
+    vec3 blur = bloom_mipmap(1.0, vec2(0.0, 0.0   ), uv);
+        blur += bloom_mipmap(2.0, vec2(0.0, 0.5   ), uv);
+        blur += bloom_mipmap(3.0, vec2(0.0, 0.75  ), uv);
+        blur += bloom_mipmap(4.0, vec2(0.0, 0.875 ), uv);
+        blur += bloom_mipmap(5.0, vec2(0.0, 0.9375), uv);
+    
     return blur * colorRange;
 }
 
@@ -62,8 +63,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 uv = fragCoord.xy / iResolution.xy;
     
     vec3 col = HDR_MAX_COL * texture(iChannel0, uv).rgb;
-    vec3 bloom_map = texture(iChannel1, uv).rgb;
-    vec3 bloom = getBloom(uv);
+    vec3 bloom_map = HDR_MAX_COL * texture(iChannel1, uv).rgb;
+    vec3 bloom = get_bloom(uv);
     
     #if POSTPROCESS
     {
