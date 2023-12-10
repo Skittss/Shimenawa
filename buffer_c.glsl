@@ -3,6 +3,8 @@
 
 #define USE_DEBUG_CAMERA 1
 
+#define ZERO (min(iFrame,0))
+
 // Sky
 
 // Rope Params
@@ -15,10 +17,12 @@ const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 #define MAT_ROPE 1.0
 #define MAT_SHIDE 2.0
 const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
+//const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
+const vec3 _RopeTerminatorLineCol = 0.8*vec3(1.0, 0.329, 0.518);
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 
 // Illumination
-const vec3  _SunPos  = vec3(30.0, 15.0, 30.0);
+const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
 //const vec3 _SunPos = vec3(0.2, 56, -40.1);
 
 const float _SunSize = 3.5;
@@ -277,8 +281,6 @@ vec2 map( in vec3 p )
     return res; // returns (distance, material) pair.
 }
 
-#define ZERO min(iFrame,0)
-
 // https://iquilezles.org/articles/normalsSDF
 vec3 calcNormal( in vec3 pos )
 {
@@ -299,6 +301,20 @@ vec3 calcNormal( in vec3 pos )
     }
     return normalize(n);
 #endif    
+}
+
+float calcSSS( in vec3 pos, in vec3 nor )
+{
+	float occ = 0.0;
+    for( int i=ZERO; i<8; i++ )
+    {
+        float h = 0.002 + 0.11*float(i)/7.0;
+        vec3 dir = normalize( sin( float(i)*13.0 + vec3(0.0,2.1,4.2) ) );
+        dir *= sign(dot(dir,nor));
+        occ += (h-map(pos-h*dir).x);
+    }
+    occ = clamp( 1.0 - 11.0*occ/8.0, 0.0, 1.0 );    
+    return occ*occ;
 }
 
 // https://iquilezles.org/articles/rmshadows
@@ -354,16 +370,28 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
 {
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormal(pos);
-    float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 1.0);
+    float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
 
 
     if (CMP_MAT_LT(m, MAT_ROPE)) 
     {
-        return mix(mix(0.6*_MatRope, _HorizonCol, 0.2), _MatRope, shadow);
+        vec3 base_shadow =  mix(0.6*_MatRope, _HorizonCol, 0.2);
+        vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, min(1.0, shadow * 2.0));
+
+        vec3 albedo = mix(sss_style_mix, _MatRope, shadow);
+        
+        return albedo;
     }
     else if (CMP_MAT_LT(m, MAT_SHIDE))
     {
-        return _MatShide;
+        // This SSS approximation is good enough for sun -> paper.
+        float tr_range = t / 5.0;
+        float view_bias = abs(dot(normalize(ro - pos), normalize(pos - _SunPos)));
+        float sun_transmission = map(pos + _LightDir * tr_range).x / tr_range;
+        vec3 sss = 0.3*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
+        //sss = sss + fre + (0.5+0.5*fre)*pow(abs(t-0.2),1.0);
+                
+        return mix(vec3(0.7), _MatShide + sss, shadow);
     }
     
     vec3 col = vec3(0.0);
