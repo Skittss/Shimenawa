@@ -1,7 +1,8 @@
-#define PI 3.14159265
-#define TAU 6.2831853
+#define PHI 1.61803399
+#define PI  3.14159265
+#define TAU 6.28318533
 
-#define USE_DEBUG_CAMERA 0
+#define USE_DEBUG_CAMERA 1
 
 #define ZERO (min(iFrame,0))
 
@@ -16,10 +17,12 @@ const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 // Materials
 #define MAT_ROPE 1.0
 #define MAT_SHIDE 2.0
+#define MAT_SHIDE_SECONDARY 3.0
 const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
 //const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
-const vec3 _RopeTerminatorLineCol = 0.8*vec3(1.0, 0.329, 0.518);
+const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
+const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.412, 0.412);
 
 // Illumination
 const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
@@ -48,7 +51,7 @@ const float _OutlineDotThreshold = 0.95;
 const float _OutlineRadialAttenuation = 2.0;
 const float _OutlineMaxDist = 0.05;
 const float _OutlineAttenuation = 16.0;
-const float _OutlineExtraThickness = 0.003;
+const float _OutlineExtraThickness = 0.0035;
 
 
 // Util
@@ -62,14 +65,24 @@ vec2 MIN_MAT(vec2 a, vec2 b)
     return (a.x < b.x) ? a : b;
 }
 
-float layeredPerlin1D()
+//util functions for AO
+// https://www.shadertoy.com/view/ld3Gz2
+float hash1(float n)
 {
-    return 1.0;
+    return fract(sin(n)*43758.5453123);
+}
+
+vec3 forwardSF(float i, float n) 
+{
+    float phi = 2.0*PI*fract(i/PHI);
+    float zi = 1.0 - (2.0*i+1.0)/n;
+    float sinTheta = sqrt( 1.0 - zi*zi);
+    return vec3( cos(phi)*sinTheta, sin(phi)*sinTheta, zi);
 }
 
 //==SDF===========================================================================================================================================
 
-float sdShide( in vec3 p, in int s_n, in float id )
+float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
 {
     // 紙垂 multiple zig-zag boxes
     // 紙で作られているから、ちょっとSSS必要あり。
@@ -98,18 +111,21 @@ float sdShide( in vec3 p, in int s_n, in float id )
     
     vec3 thinShidePos = p + vec3(.0, -1.5 * dim.y, 0.9 * dim.z);
     // 動かす - Sinusoidal motion
-    thinShidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * id) * distToConnector;
+    thinShidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id) * distToConnector;
     float d = sdBox(thinShidePos, smallDim);
     
     // Zig-zag - domain repetition is a viable option here but I'm not sure how to
     //   ensure the sdf remains correct when applying a stepwise shift in the domain
     
+    seg_id = 0.0;
     for (int i=0; i<s_n; i++)
     {
-        vec3 shidePos = p + vec3(-2.0 * dim.x * mod(float(i+1), 2.0), 2.0 * dim.y * float(i), -dim.z * float(i));
-        shidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * id) * distToConnector;
-        shidePos.x += _ShideWindParams_s.x * sin(distToConnector * _ShideWindParams_s.y + _ShideWindParams_s.z * iTime + 13.0 * id) * distToConnector;
-        d = min(d, sdBox(shidePos, dim));
+        vec3 shidePos = p + vec3(-5.0 * dim.x * mod(float(i+1), 2.0), 2.0 * dim.y * float(i), -dim.z * float(i));
+        shidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id) * distToConnector;
+        shidePos.x += _ShideWindParams_s.x * sin(distToConnector * _ShideWindParams_s.y + _ShideWindParams_s.z * iTime + 13.0 * sec_id) * distToConnector;
+        //d = min(d, sdBox(shidePos, dim));
+        float d2 = sdBox(shidePos, dim);
+        if (d2 < d) {d = d2; seg_id = float(i+1);}
     }
     
     return d;
@@ -187,8 +203,10 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     float sector = round(atan(p.z,p.x)/an);
     float angrot = sector*an;
     q.xz *= rot(angrot);
-    float d = sdShide(q - vec3(r + 0.4*c, -2.3*c, 0.0), 4, sector+1.0);
-    res = MIN_MAT(res, vec2(d, MAT_SHIDE));
+    float seg_id;
+    float d = sdShide(q - vec3(r + 0.4*c, -2.3*c, 0.0), 4, sector+1.0, seg_id);
+    float shide_mat = (mod(seg_id, 2.0) == 0.0) ? MAT_SHIDE : MAT_SHIDE + 1.0;
+    res = MIN_MAT(res, vec2(d, shide_mat));
     }
     #endif
     
@@ -372,6 +390,23 @@ float softShadowBacktrack( in vec3 ro, in vec3 rd, float k )
     return clamp(res,0.0,1.0);
 }
 
+// https://www.shadertoy.com/view/ld3Gz2
+//  AO by (pseudo-random) sampling a number of distances to surfaces in a hemisphere about the normal
+float calcAO( in vec3 pos, in vec3 nor )
+{
+	float ao = 0.0;
+    for( int i=ZERO; i<int(AO_SAMPLES); i++ )
+    {
+        vec3 ap = forwardSF( float(i), AO_SAMPLES );
+        float h = hash1(float(i));
+		ap *= sign( dot(ap,nor) ) * h*0.1;
+        ao += clamp( map(pos + nor*0.01 + ap).x*3.0, 0.0, 1.0 );
+    }
+	ao /= AO_SAMPLES;
+	
+    return clamp( ao*6.0, 0.0, 1.0 );
+}
+
 vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 {
     float rd_dot_sun = dot(rd, normalize(_SunPos - ro));
@@ -414,33 +449,38 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormal(pos);
     float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 2.0);
+    float occ = calcAO(pos, nor);
+    shadow *= pow(occ, 2.0);
+    //shadow = (shadow + occ) / 2.0;
     //float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
-
 
     if (CMP_MAT_LT(m, MAT_ROPE)) 
     {
-        vec3 base_shadow =  mix(0.6*_MatRope, _HorizonCol, 0.2);
+        vec3 base_shadow = mix(0.6*_MatRope, _HorizonCol, 0.2);
         // TODO: I think this multiplier of the shadow coeff changes the base shadow colour too.
         vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, min(1.0, 4.0 * shadow));
-
-        vec3 albedo = mix(sss_style_mix, _MatRope, min(1.0, 2.0 * shadow));
-        //vec3 albedo = mix(base_shadow, _MatRope, shadow);
+        //vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, shadow);
         
+        vec3 albedo = mix(sss_style_mix, _MatRope, min(1.0, 2.0 * shadow));
+        //vec3 albedo = mix(sss_style_mix, _MatRope, shadow);
+               
         return albedo;
     }
-    else if (CMP_MAT_LT(m, MAT_SHIDE))
+    else if (CMP_MAT_LT(m, MAT_SHIDE_SECONDARY)) // handle both shide mat variatons here
     {
+        vec3 mat = (m == MAT_SHIDE) ? _MatShide : _MatShideSecondary;
         // This simple SSS approximation is good enough for sun -> paper.
         float tr_range = t / 5.0;
         float view_bias = abs(dot(normalize(ro - pos), normalize(pos - _SunPos)));
         float sun_transmission = map(pos + _LightDir * tr_range).x / tr_range;
         vec3 sss = 0.3*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
         
-        vec3 base_shadow = vec3(0.7);
+        vec3 base_shadow = mix(0.6*mat, _HorizonCol, 0.2);
 
         //sss = sss + fre + (0.5+0.5*fre)*pow(abs(t-0.2),1.0);
-                
-        return mix(base_shadow, _MatShide + sss, shadow);
+        
+        //return vec3(occ);
+        return sss + mix(base_shadow, mat, shadow);
     }
     
     vec3 col = vec3(0.0);

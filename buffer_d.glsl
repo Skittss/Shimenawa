@@ -1,10 +1,10 @@
-// Simple bloom filter. 
+// Simple buffer pass bloom. 
 // Do this step in HDR space to avoid blooming non-bright objects. 
 //  Combine 4 mipmap levels for progressive gaussian blur, and apply.
 //  There is some artifacting due to the gaussian size.
 
 // I honestly think this is a pretty bad way of doing this on shadertoy in hindsight
-//  ... Too bad!
+//  Would benefit greatly from individual buffers for each level + billinear sampling ...Too bad!
 
 #define THRESH vec3(EXPOSURE * BLOOM_THRESHOLD)
 
