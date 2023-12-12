@@ -1,7 +1,7 @@
 #define PI 3.14159265
 #define TAU 6.2831853
 
-#define USE_DEBUG_CAMERA 1
+#define USE_DEBUG_CAMERA 0
 
 #define ZERO (min(iFrame,0))
 
@@ -41,6 +41,15 @@ const float _HorizonOffset = 0.0;
 
 const vec3 _LightDir = normalize(_SunPos);
 //const vec3 _LightDir = normalize(vec3(2.0, 1.0, 2.0));
+
+// SSS Sun Outline
+const vec3 outline_col = _SunCol;
+const float outline_dot_threshold = 0.95;
+const float outline_radial_attenuation = 2.0;
+const float outline_max_dist = 0.05;
+const float outline_attenuation = 16.0;
+const float outline_extra_thickness = 0.003;
+
 
 // Util
 #define CMP_MAT_LT(a, b) a < (b + 0.5)
@@ -318,7 +327,8 @@ float calcSSS( in vec3 pos, in vec3 nor )
 }
 
 // https://iquilezles.org/articles/rmshadows
-// Better quality, less banding.
+// Soft Shadows with no backtracking
+// Generally slower and less accurate than with backtracking, but with more predictable behavior for distorted interior SDFs
 float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w )
 {
 	float res = 1.0;
@@ -344,12 +354,44 @@ float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w )
     return res*res*(3.0-2.0*res);
 }
 
-vec2 intersect( in vec3 ro, in vec3 rd )
+// https://iquilezles.org/articles/rmshadows
+// Soft Shadows with backtracking.
+float softShadowBacktrack( in vec3 ro, in vec3 rd, float k )
 {
-    vec2 res = vec2(-1.0);
+    float res = 1.0;
+    float t = 0.01;
+    for( int i=ZERO; i<32; i++ )
+    {
+        float h = map(ro + rd*t).x;
+        res = min( res, smoothstep(0.0,1.0,k*h/t) );
+        //t += clamp( h, 0.0, 0.1 );
+        t += h;
+		//if( res<0.01 ) break;
+		if( abs(res)<0.01 ) break;
+    }
+    return clamp(res,0.0,1.0);
+}
+
+vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
+{
+    float outline_sun_dot = dot(rd, normalize(_SunPos - ro));
+    
+    float angle_factor = 1.0 / (1.0 - outline_dot_threshold) * (max(0.0, outline_sun_dot - outline_dot_threshold));
+    angle_factor = pow(angle_factor, outline_radial_attenuation);
+    
+    // It might be faster to check the dot threshold herere computing the outline f the attenuation power curve is expensive.
+    float a = step(0.001, d); // Stencil for non-edges
+    float b = clamp((d - outline_extra_thickness) / outline_max_dist, 0.0, 1.0);
+    
+    return a * angle_factor * outline_col * pow(1.0 - b, outline_attenuation);
+}
+
+vec3 intersect( in vec3 ro, in vec3 rd )
+{
+    vec3 res = vec3(-1.0, 1e10, -1.0);
     
     // bounding sphere
-    vec2 tminmax = iSphere( ro, rd, 1000.0 );
+    vec2 tminmax = iSphere( ro, rd, 1.0 );
 	if( tminmax.y>0.0 )
     {
         // raymarch
@@ -357,41 +399,48 @@ vec2 intersect( in vec3 ro, in vec3 rd )
         for( int i=0; i<128 && t<tminmax.y; i++ )
         {
             vec2 h = map(ro+t*rd);
-            if( abs(h.x)<0.001 ) { res=vec2(t, h.y); break; }
+            res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
+            if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
             t += 0.8 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
                             //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
         }
     }
     
-    return res;
+    return res; // t, nearest, mat_id
 }
 
 vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m ) 
 {
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormal(pos);
-    float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
+    float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 2.0);
+    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
 
 
     if (CMP_MAT_LT(m, MAT_ROPE)) 
     {
         vec3 base_shadow =  mix(0.6*_MatRope, _HorizonCol, 0.2);
-        vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, min(1.0, shadow * 2.0));
+        // TODO: I think this multiplier of the shadow coeff changes the base shadow colour too.
+        vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, min(1.0, 4.0 * shadow));
 
-        vec3 albedo = mix(sss_style_mix, _MatRope, shadow);
+        vec3 albedo = mix(sss_style_mix, _MatRope, min(1.0, 2.0 * shadow));
+        //vec3 albedo = mix(base_shadow, _MatRope, shadow);
         
         return albedo;
     }
     else if (CMP_MAT_LT(m, MAT_SHIDE))
     {
-        // This SSS approximation is good enough for sun -> paper.
+        // This simple SSS approximation is good enough for sun -> paper.
         float tr_range = t / 5.0;
         float view_bias = abs(dot(normalize(ro - pos), normalize(pos - _SunPos)));
         float sun_transmission = map(pos + _LightDir * tr_range).x / tr_range;
         vec3 sss = 0.3*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
+        
+        vec3 base_shadow = vec3(0.7);
+
         //sss = sss + fre + (0.5+0.5*fre)*pow(abs(t-0.2),1.0);
                 
-        return mix(vec3(0.7), _MatShide + sss, shadow);
+        return mix(base_shadow, _MatShide + sss, shadow);
     }
     
     vec3 col = vec3(0.0);
@@ -408,11 +457,14 @@ vec3 render ( in vec3 ro, in vec3 rd )
     vec3 col = sky(ro, rd);
 
     // raymarch geometry
-    vec2 tm = intersect( ro, rd );
+    vec3 tm = intersect( ro, rd );
     if( tm.x>0.0 )
     {
-        col = shade(ro, rd, tm.x, tm.y);
+        col = shade(ro, rd, tm.x, tm.z);
     }
+    
+    // TODO: This should only be applied to certain materials that SSS (and to varying extents?)
+    col += sunSSSOutline(ro, rd, tm.y);
     
     return col;
 }
@@ -443,7 +495,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         #endif
 
 	    // camera & movement
-        float an = TAU*iTime/40.0;
+        float an = TAU*1.4*iTime/40.0;
         vec3 ta = vec3( 0.0, 0.0, 0.0 );
         
         vec2 m = iMouse.xy / iResolution.xy-.5;
