@@ -45,6 +45,8 @@ const float _HorizonOffset = 0.0;
 const vec3 _LightDir = normalize(_SunPos);
 //const vec3 _LightDir = normalize(vec3(2.0, 1.0, 2.0));
 
+const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
+
 // SSS Sun Outline
 const vec3  _OutlineCol = _SunCol;
 const float _OutlineDotThreshold = 0.95;
@@ -409,6 +411,10 @@ float calcAO( in vec3 pos, in vec3 nor )
 
 vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 {
+    // Create an outline around objects within a certain radius around the sun.
+    //    The view direction dot product can be used to determine the radius.
+    //    Raymarching near missesare used to generate the outline. 
+    //   Then, a power curve is used to decay the outline based on distance from the sun.
     float rd_dot_sun = dot(rd, normalize(_SunPos - ro));
     
     float angle_factor = 1.0 / (1.0 - _OutlineDotThreshold) * (max(0.0, rd_dot_sun - _OutlineDotThreshold));
@@ -450,7 +456,7 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
     vec3 nor = calcNormal(pos);
     float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 2.0);
     float occ = calcAO(pos, nor);
-    shadow *= pow(occ, 2.0);
+    shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
     //shadow = (shadow + occ) / 2.0;
     //float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
 
