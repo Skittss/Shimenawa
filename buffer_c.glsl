@@ -43,12 +43,12 @@ const vec3 _LightDir = normalize(_SunPos);
 //const vec3 _LightDir = normalize(vec3(2.0, 1.0, 2.0));
 
 // SSS Sun Outline
-const vec3 outline_col = _SunCol;
-const float outline_dot_threshold = 0.95;
-const float outline_radial_attenuation = 2.0;
-const float outline_max_dist = 0.05;
-const float outline_attenuation = 16.0;
-const float outline_extra_thickness = 0.003;
+const vec3  _OutlineCol = _SunCol;
+const float _OutlineDotThreshold = 0.95;
+const float _OutlineRadialAttenuation = 2.0;
+const float _OutlineMaxDist = 0.05;
+const float _OutlineAttenuation = 16.0;
+const float _OutlineExtraThickness = 0.003;
 
 
 // Util
@@ -374,16 +374,16 @@ float softShadowBacktrack( in vec3 ro, in vec3 rd, float k )
 
 vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 {
-    float outline_sun_dot = dot(rd, normalize(_SunPos - ro));
+    float rd_dot_sun = dot(rd, normalize(_SunPos - ro));
     
-    float angle_factor = 1.0 / (1.0 - outline_dot_threshold) * (max(0.0, outline_sun_dot - outline_dot_threshold));
-    angle_factor = pow(angle_factor, outline_radial_attenuation);
+    float angle_factor = 1.0 / (1.0 - _OutlineDotThreshold) * (max(0.0, rd_dot_sun - _OutlineDotThreshold));
+    angle_factor = pow(angle_factor, _OutlineRadialAttenuation);
     
-    // It might be faster to check the dot threshold herere computing the outline f the attenuation power curve is expensive.
+    // It might be faster to check the dot threshold here when computing the outline if the attenuation power curve is expensive.
     float a = step(0.001, d); // Stencil for non-edges
-    float b = clamp((d - outline_extra_thickness) / outline_max_dist, 0.0, 1.0);
+    float b = clamp((d - _OutlineExtraThickness) / _OutlineMaxDist, 0.0, 1.0);
     
-    return a * angle_factor * outline_col * pow(1.0 - b, outline_attenuation);
+    return a * angle_factor * _OutlineCol * pow(1.0 - b, _OutlineAttenuation);
 }
 
 vec3 intersect( in vec3 ro, in vec3 rd )
