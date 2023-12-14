@@ -257,6 +257,118 @@ vec2 sdTree( in vec3 p, in float h, in float r )
     return vec2(min(dTree, db), m);
 }
 
+vec2 sdArch( in vec3 p, in float h, in float r, in float l )
+{
+    // TODO: Should bounding box this whole bridge.
+    // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
+    
+    // Create bridge on z axis line, then wrap it around an arc with circle uvs
+    const float strut_interval = 1.50;
+    const float n_repetitions = 3.0;
+    const float strut_offset = 0.8;
+    const float strut_thickness = 0.2;
+    const float strut_roundness = 0.01;
+    
+    const float bridge_width = 0.35;
+    const float bridge_height = 0.05;
+    
+    const float wedge_height = 0.3;
+    const float wedge_top_width = 2.2 * strut_thickness;
+    const float wedge_bevel_height = 0.05;
+    const float wedge_bevel_extrusion = 0.05;
+    const float wedge_bevel_2_ratio = 0.618; // height of second bevel along wedge
+    
+    const float strut_box_frame_extrusion = 0.04;
+    const float strut_box_frame_thickness = 0.05;
+    
+    const float box_frame_bevel_extrusion = 0.035;
+    const float box_frame_bevel_height = 0.06;
+    
+    l = 3.0;
+    h = 1.0;
+    
+    float d = 1e10;
+    
+    vec3 strut_base = p - vec3(strut_offset, 0.0, 0.0);
+    // struts
+    {
+        // strut beam
+        vec3 q = strut_base;
+        float rep_id = clamp(round((q.x / strut_interval)), 0.0, n_repetitions);
+        float rep_trans = rep_id * strut_interval;
+        q.x -= rep_trans;
+        d = min(d, 
+            sdBox(q, vec3(
+                strut_thickness, 
+                h, 
+                strut_thickness)
+            ) - strut_roundness
+        );
+        
+        // strut-bridge connector wedge
+        q = strut_base - vec3(0.0, h - wedge_height, 0.0);
+        q.x -= rep_trans;
+        d = min(d, sdPrism(q, strut_thickness, wedge_top_width, wedge_height, strut_thickness) - strut_roundness);
+        
+        // wedge bevels
+        //   first wedge
+        q = strut_base - vec3(0.0, h, 0.0);
+        q.x -= rep_trans;
+        d = min(d, 
+            sdBox(q, vec3(
+                wedge_top_width + wedge_bevel_extrusion, 
+                wedge_bevel_height, 
+                strut_thickness + wedge_bevel_extrusion)
+            ) - strut_roundness
+        );
+        //   second wedge
+        q.y += 2.0 * wedge_height * (1.0 - wedge_bevel_2_ratio);
+        d = min(d, 
+            sdBox(q, vec3(
+                mix(strut_thickness, wedge_top_width, wedge_bevel_2_ratio) + wedge_bevel_extrusion, 
+                wedge_bevel_height / 2.0, 
+                strut_thickness + wedge_bevel_extrusion)
+            ) - strut_roundness
+        );
+    
+        // box frame
+        q = strut_base; q.y += wedge_height;
+        q.x -= rep_trans;
+        float box_frame_height = h - wedge_height;
+        d = min(d, 
+            sdBoxFrame(q, vec3(
+                strut_thickness + strut_box_frame_extrusion, 
+                box_frame_height, 
+                strut_thickness + strut_box_frame_extrusion
+            ), strut_box_frame_thickness) - strut_roundness
+        );
+        
+        // box frame bevels
+        q = strut_base; 
+        q.y += wedge_height - box_frame_height + box_frame_bevel_height;
+        q.x -= rep_trans;
+        float bevel_width = strut_thickness + strut_box_frame_extrusion + box_frame_bevel_extrusion;
+        d = min(d,
+            sdBox(q, vec3(
+                bevel_width,
+                box_frame_bevel_height,
+                bevel_width)
+            ) - strut_roundness
+        );
+        
+        // TODO: Domain repetition of box frame bevels
+    }
+        
+    
+    // bridge top
+    d = min(d, sdBox(p-vec3(l, h + bridge_height, 0.0), vec3(l, 0.05, bridge_width)) - 0.01);
+    
+    // TODO: When wrapping the uvs about a ring, we must take care that struts are not distorted, so use
+    //        one t-value for rotation of each strut's UV space if possible.
+    
+    return vec2(d, 10.0);
+}
+
 //==ILLUMINATION================================================================================================================================
 
 vec3 sky( in vec3 ro, in vec3 rd ) 
@@ -302,9 +414,13 @@ vec2 map( in vec3 p )
     res = sdTree(p, 0.40, 0.40);
     #endif
     
-    #if 1
+    #if 0
     float r_id;
     res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
+    #endif
+    
+    #if 1
+    res = MIN_MAT(res, sdArch(p, 0.2, 0.04, 0.3));
     #endif
            
     return res; // returns (distance, material) pair.
@@ -334,15 +450,16 @@ vec3 calcNormal( in vec3 pos )
 
 float calcSSS( in vec3 pos, in vec3 nor )
 {
+    const int N_SAMPLES = 9;
 	float occ = 0.0;
-    for( int i=ZERO; i<8; i++ )
+    for( int i=ZERO; i<N_SAMPLES; i++ )
     {
         float h = 0.002 + 0.11*float(i)/7.0;
         vec3 dir = normalize( sin( float(i)*13.0 + vec3(0.0,2.1,4.2) ) );
         dir *= sign(dot(dir,nor));
         occ += (h-map(pos-h*dir).x);
     }
-    occ = clamp( 1.0 - 11.0*occ/8.0, 0.0, 1.0 );    
+    occ = clamp( 1.0 - 11.0*occ/float(N_SAMPLES), 0.0, 1.0 );    
     return occ*occ;
 }
 
@@ -409,6 +526,7 @@ float calcAO( in vec3 pos, in vec3 nor )
     return clamp( ao*6.0, 0.0, 1.0 );
 }
 
+// TODO: I don't think this object scales well with distance / object size.
 vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 {
     // Create an outline around objects within a certain radius around the sun.
@@ -431,8 +549,9 @@ vec3 intersect( in vec3 ro, in vec3 rd )
 {
     vec3 res = vec3(-1.0, 1e10, -1.0);
     
+    // TODO: Bounding sphere here is too restrictive. Should move this to individual objects.
     // bounding sphere
-    vec2 tminmax = iSphere( ro, rd, 1.0 );
+    vec2 tminmax = iSphere( ro, rd, 1000.0 );
 	if( tminmax.y>0.0 )
     {
         // raymarch
@@ -491,9 +610,9 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
     
     vec3 col = vec3(0.0);
     col = 0.5 + 0.5*nor;
-    col = mix(vec3(0.0), col, shadow);
+    //col = mix(vec3(0.0), col, shadow);
 
-    return col;
+    return 1.2*col;
 }
 
 vec3 render ( in vec3 ro, in vec3 rd ) 
@@ -550,7 +669,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         if ( iMouse.x >= 0.0 ) 
         {
             vec3 target = vec3(0.0);
-            ro = vec3(0.8, 0.3, 0.8);
+            ro = 2.0*vec3(0.8, 0.3, 0.8);
             ro.yz *= rot(m.y*PI);
             ro.xz *= rot(-m.x*TAU*2.0);
         }
