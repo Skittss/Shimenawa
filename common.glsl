@@ -87,15 +87,21 @@ float sdBox( vec3 p, vec3 b )
 }
 
 // https://iquilezles.org/articles/distfunctions
+float sdBoxFrame( vec3 p, vec3 b, float e )
+{
+    p = abs(p  )-b;
+    vec3 q = abs(p+e)-e;
+    return min(min(
+    length(max(vec3(p.x,q.y,q.z),0.0))+min(max(p.x,max(q.y,q.z)),0.0),
+    length(max(vec3(q.x,p.y,q.z),0.0))+min(max(q.x,max(p.y,q.z)),0.0)),
+    length(max(vec3(q.x,q.y,p.z),0.0))+min(max(q.x,max(q.y,p.z)),0.0));
+}
+
+// https://iquilezles.org/articles/distfunctions
 float sdVerticalCapsule( vec3 p, float r, float h )
 {
   p.x -= clamp( p.x, 0.0, h );
   return length( p ) - r;
-}
-
-float sdVertCylinderInf( in vec3 p, in float r )
-{
-    return length(p.xz)-r;
 }
 
 float sdCircleXZ( in vec3 p, in float r, out float t) 
@@ -106,17 +112,18 @@ float sdCircleXZ( in vec3 p, in float r, out float t)
     return length(vec2(p.x, p.z))-r;
 }
 
-// t-valued ring defined in xz so that periodic functions can be applied around the tree
-vec2 sdTorusRing( in vec3 p, in float r, in float c)
-{
-    vec3 ring_origin = p - vec3(r, 0.0, 0.0); // use point in x axis as the origin
-    vec2 p_xz = normalize(p).xz;
-    vec3 closest_p = r * vec3(p_xz.x, 0.0, p_xz.y);
-    float t = dot(normalize(ring_origin.xz), p_xz) / 6.283185;
-    
-    vec2 q = vec2(length(p.xz)-r,p.y);
-    
-    return vec2(t, length(q)-c);
+// https://www.shadertoy.com/view/msVBzy
+float sdPrism(vec3 position, float halfWidth1, float halfWidth2, float halfHeight, float halfDepth) {
+    position.x = abs(position.x);
+    position.x -= 0.5 * (halfWidth2 + halfWidth1);
+    vec2 e = vec2(0.5 * (halfWidth2 - halfWidth1), halfHeight);
+    vec2 q = position.xy - e * clamp(dot(position.xy, e) / dot(e, e), -1.0, 1.0);
+    float d1 = length(q);
+    if (q.x < 0.0) {
+        d1 = max(-d1, abs(position.y) - halfHeight);
+    }
+    float d2 = abs(position.z) - halfDepth;
+    return length(max(vec2(d1, d2), 0.0)) + min(max(d1, d2), 0.0);
 }
 
 // https://iquilezles.org/articles/distfunctions
