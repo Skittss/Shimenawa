@@ -3,10 +3,50 @@
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
+#define DEBUG_CAMERA_DIST 5.0
+#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 
 #define ZERO (min(iFrame,0))
 
-// Sky
+// Bridge Params
+const float _BridgeBottom = 3.0;
+
+const float strut_interval = 3.50;
+const float n_repetitions = 3.0;
+const float strut_offset = 0.8;
+const float strut_thickness = 0.2;
+const float strut_roundness = 0.01;
+
+const float bridge_top_width = 0.35;
+const float bridge_top_thickness = 0.25;
+const float bridge_top_bevel_extrusion = 0.03;
+const float bridge_top_bevel_thickness = 0.05;
+const float bridge_top_roundness = 0.005;
+
+const float wedge_height = 0.3;
+const float wedge_top_width = 2.2 * strut_thickness;
+const float wedge_bevel_height = 0.05;
+const float wedge_bevel_extrusion = 0.05;
+const float wedge_bevel_2_ratio = 0.618; // height of second bevel along wedge
+
+const float strut_box_frame_extrusion = 0.04;
+const float strut_box_frame_thickness = 0.03;
+
+const float box_frame_bevel_extrusion = 0.03;
+const float box_frame_bevel_height = 0.04;
+const float box_frame_bevel_sep = 0.4;
+const float box_frame_bevel_bottom_offset = 1.618;
+
+const float link_top_spacing = 0.4;
+const float link_thickness = 0.025;
+
+const float mini_strut_interval = strut_interval / 4.0;
+const float mini_strut_n_rep = 13.0;
+const float mini_strut_offset = strut_offset - 0.5 * mini_strut_interval;
+const float mini_strut_height = 0.35;
+const float mini_strut_thickness = 0.075;
+const float mini_strut_y_extrusion = 0.05;
+const float mini_strut_z_extrusion = 0.07;
 
 // Rope Params
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
@@ -18,6 +58,7 @@ const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 #define MAT_ROPE 1.0
 #define MAT_SHIDE 2.0
 #define MAT_SHIDE_SECONDARY 3.0
+#define MAT_BRIDGE_STONE 4.0
 const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
 //const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
 const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
@@ -136,6 +177,9 @@ float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
 // p is position of top, s is scale
 float sdKiraretanawa( in vec3 p, in float s, in float connectorOffset, in float id )
 {
+    // TODO: scaling is as simple as scaling p i.e. p / s.
+    //         This makes the *s operations in this function completely redundant.
+    
     // Offset rotation to make object sway
     p.yz *= rot(_KiraretanawaWindParamsYZ.x * sin(_KiraretanawaWindParamsYZ.y * 0.89 * iTime + 71.0 * id));
     p.yx *= rot(_KiraretanawaWindParamsYX.x * cos(_KiraretanawaWindParamsYX.y * 0.57 * iTime + 31.0 * id));
@@ -257,123 +301,184 @@ vec2 sdTree( in vec3 p, in float h, in float r )
     return vec2(min(dTree, db), m);
 }
 
-vec2 sdArch( in vec3 p, in float h, in float r, in float l )
+vec2 sdBridgeStrut( in vec3 strut_base, in float h) 
+{
+    float d = 1e10;
+    
+    // strut beam
+    vec3 q = strut_base;
+    d = min(d, 
+        sdBox(q, vec3(
+            strut_thickness, 
+            h, 
+            strut_thickness)
+        ) - strut_roundness
+    );
+
+    // strut-bridge connector wedge
+    q = strut_base - vec3(0.0, h - wedge_height, 0.0);
+    d = min(d, sdPrism(q, strut_thickness, wedge_top_width, wedge_height, strut_thickness) - strut_roundness);
+
+    // wedge bevels
+    //   first wedge
+    q = strut_base - vec3(0.0, h, 0.0);
+    d = min(d, 
+        sdBox(q, vec3(
+            wedge_top_width + wedge_bevel_extrusion, 
+            wedge_bevel_height, 
+            strut_thickness + wedge_bevel_extrusion)
+        ) - strut_roundness
+    );
+    //   second wedge
+    q.y += 2.0 * wedge_height * (1.0 - wedge_bevel_2_ratio);
+    d = min(d, 
+        sdBox(q, vec3(
+            mix(strut_thickness, wedge_top_width, wedge_bevel_2_ratio) + wedge_bevel_extrusion, 
+            wedge_bevel_height / 2.0, 
+            strut_thickness + wedge_bevel_extrusion)
+        ) - strut_roundness
+    );
+
+    // box frame
+    q = strut_base; q.y += wedge_height;
+    float box_frame_height = h - wedge_height;
+    d = min(d, 
+        sdBoxFrame(q, vec3(
+            strut_thickness + strut_box_frame_extrusion, 
+            box_frame_height, 
+            strut_thickness + strut_box_frame_extrusion
+        ), strut_box_frame_thickness) - strut_roundness
+    );
+
+    // box frame bevels
+    float box_frame_top_offset = wedge_height - box_frame_height + box_frame_bevel_height;
+    // top
+    q = strut_base;
+    q.y += box_frame_top_offset; // translate up along strut
+    q.y = abs(q.y + 0.5 * box_frame_bevel_sep) - 0.5 * box_frame_bevel_sep; // domain repetition (reflection in xz plane), and center about top bevel.
+    float bevel_width = strut_thickness + strut_box_frame_extrusion + box_frame_bevel_extrusion;
+    d = min(d,
+        sdBox(q, vec3(
+            bevel_width,
+            box_frame_bevel_height,
+            bevel_width)
+        ) - strut_roundness
+    );
+
+    // bottom
+    q = strut_base;
+    q.y += box_frame_top_offset + box_frame_bevel_sep + box_frame_bevel_bottom_offset; // translate up along strut
+    d = min(d,
+        sdBox(q, vec3(
+            bevel_width,
+            box_frame_bevel_height,
+            bevel_width)
+        ) - strut_roundness
+    );
+
+
+    // link
+    q.y -= 0.5 * box_frame_bevel_bottom_offset;
+    q.z -= strut_thickness + link_thickness;
+    d = min(d,
+        sdLink(q, 0.65*0.5*box_frame_bevel_bottom_offset, 0.10, link_thickness)
+    );
+    
+    return vec2(d, MAT_BRIDGE_STONE);
+}
+
+vec2 sdBridgeTop( in vec3 p, in float h, in float l ) 
+{
+    float d = 1e10; 
+    
+    vec3 q = p - vec3(l, bridge_top_thickness, 0.0);
+    d = min(d, sdBox(q, vec3(l, bridge_top_thickness, bridge_top_width)));
+    // bridge top bevels
+    q.y = abs(q.y) - bridge_top_thickness + bridge_top_bevel_thickness; // domain repetition
+    d = min(d, sdBox(q, vec3(l, bridge_top_bevel_thickness, bridge_top_width + bridge_top_bevel_extrusion)));
+    
+    return vec2(d, MAT_BRIDGE_STONE);
+}
+
+vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
+{
+    float d = 1e10;
+    
+    // mini struts        
+    //   block
+    vec3 q = p;
+    //      domain repetition (reflection in xz plane), and center about top bevel.
+    q.z = abs(q.z) - bridge_top_width + mini_strut_thickness - mini_strut_z_extrusion; 
+    d = min(d, sdBox(q, vec3(mini_strut_thickness, mini_strut_height, mini_strut_thickness)));
+
+    //   spike
+    q.y += mini_strut_height + mini_strut_thickness;
+    q.y = -q.y;
+    d = min(d, sdPyramid(q, mini_strut_thickness, mini_strut_thickness, mini_strut_thickness));
+    
+    return vec2(d, MAT_BRIDGE_STONE);
+}
+
+vec2 sdBridgeSegment( in vec3 p, in float h, in float r, in float l )
 {
     // TODO: Should bounding box this whole bridge.
     // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
+    // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.
     
-    // Create bridge on z axis line, then wrap it around an arc with circle uvs
-    const float strut_interval = 1.50;
-    const float n_repetitions = 3.0;
-    const float strut_offset = 0.8;
-    const float strut_thickness = 0.2;
-    const float strut_roundness = 0.01;
+    l = 6.0;
+    h = 2.5;
     
-    const float bridge_width = 0.35;
-    const float bridge_height = 0.05;
+    vec2 res = vec2(1e10);
+        
+    // Transform to correcto origin plane in y
+    p.y += _BridgeBottom - h;
     
-    const float wedge_height = 0.3;
-    const float wedge_top_width = 2.2 * strut_thickness;
-    const float wedge_bevel_height = 0.05;
-    const float wedge_bevel_extrusion = 0.05;
-    const float wedge_bevel_2_ratio = 0.618; // height of second bevel along wedge
-    
-    const float strut_box_frame_extrusion = 0.04;
-    const float strut_box_frame_thickness = 0.05;
-    
-    const float box_frame_bevel_extrusion = 0.035;
-    const float box_frame_bevel_height = 0.06;
-    
-    l = 3.0;
-    h = 1.0;
-    
-    float d = 1e10;
-    
+    // Domain repetition for struts - render as many struts as we like for the price of one.
     vec3 strut_base = p - vec3(strut_offset, 0.0, 0.0);
-    // struts
-    {
-        // strut beam
-        vec3 q = strut_base;
-        float rep_id = clamp(round((q.x / strut_interval)), 0.0, n_repetitions);
-        float rep_trans = rep_id * strut_interval;
-        q.x -= rep_trans;
-        d = min(d, 
-            sdBox(q, vec3(
-                strut_thickness, 
-                h, 
-                strut_thickness)
-            ) - strut_roundness
-        );
-        
-        // strut-bridge connector wedge
-        q = strut_base - vec3(0.0, h - wedge_height, 0.0);
-        q.x -= rep_trans;
-        d = min(d, sdPrism(q, strut_thickness, wedge_top_width, wedge_height, strut_thickness) - strut_roundness);
-        
-        // wedge bevels
-        //   first wedge
-        q = strut_base - vec3(0.0, h, 0.0);
-        q.x -= rep_trans;
-        d = min(d, 
-            sdBox(q, vec3(
-                wedge_top_width + wedge_bevel_extrusion, 
-                wedge_bevel_height, 
-                strut_thickness + wedge_bevel_extrusion)
-            ) - strut_roundness
-        );
-        //   second wedge
-        q.y += 2.0 * wedge_height * (1.0 - wedge_bevel_2_ratio);
-        d = min(d, 
-            sdBox(q, vec3(
-                mix(strut_thickness, wedge_top_width, wedge_bevel_2_ratio) + wedge_bevel_extrusion, 
-                wedge_bevel_height / 2.0, 
-                strut_thickness + wedge_bevel_extrusion)
-            ) - strut_roundness
-        );
+    float rep_id = clamp(round((strut_base.x / strut_interval)), 0.0, n_repetitions);
+    strut_base.x -= rep_id * strut_interval;
     
-        // box frame
-        q = strut_base; q.y += wedge_height;
-        q.x -= rep_trans;
-        float box_frame_height = h - wedge_height;
-        d = min(d, 
-            sdBoxFrame(q, vec3(
-                strut_thickness + strut_box_frame_extrusion, 
-                box_frame_height, 
-                strut_thickness + strut_box_frame_extrusion
-            ), strut_box_frame_thickness) - strut_roundness
-        );
-        
-        // box frame bevels
-        q = strut_base; 
-        q.y += wedge_height - box_frame_height + box_frame_bevel_height;
-        q.x -= rep_trans;
-        float bevel_width = strut_thickness + strut_box_frame_extrusion + box_frame_bevel_extrusion;
-        d = min(d,
-            sdBox(q, vec3(
-                bevel_width,
-                box_frame_bevel_height,
-                bevel_width)
-            ) - strut_roundness
-        );
-        
-        // TODO: Domain repetition of box frame bevels
-    }
-        
+    res = MIN_MAT(res, sdBridgeStrut(strut_base, h));
     
-    // bridge top
-    d = min(d, sdBox(p-vec3(l, h + bridge_height, 0.0), vec3(l, 0.05, bridge_width)) - 0.01);
+    vec3 top_base = p - vec3(0.0, h, 0.0);
+    res = MIN_MAT(res, sdBridgeTop(top_base, h, l));
+
+    // Domain repetition for struts - render as many struts as we like for the price of one.
+    vec3 mini_strut_base = p - vec3(mini_strut_offset, h + mini_strut_height - mini_strut_y_extrusion, 0.0);
+    rep_id = clamp(round((mini_strut_base.x / mini_strut_interval)), 0.0, mini_strut_n_rep);
+    mini_strut_base.x -= rep_id * mini_strut_interval;
+
+    res = MIN_MAT(res, sdBridgeTopStruts(mini_strut_base, h, l));
     
-    // TODO: When wrapping the uvs about a ring, we must take care that struts are not distorted, so use
-    //        one t-value for rotation of each strut's UV space if possible.
+    return res;
+}
+
+vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in vec2 d )
+{
+    // TODO: Pretty much the same as above, but top func needs replacing with infinite ver.
+    // TODO: Otherwise, could just domain warp bridge segments (so long as they're symmetrical).
+    return vec2(-1.0);
+}
+
+vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
+{
+    // Create bridge on z axis line, then wrap it around an arc with circle uvs
+    float ring_t = 0.0;
+    float dRing = sdCircleXZ(p, r, ring_t);
+        
+    // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
+    vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
+    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l, r);
+    res.x *= 0.8;
     
-    return vec2(d, 10.0);
+    return res;
 }
 
 //==ILLUMINATION================================================================================================================================
 
 vec3 sky( in vec3 ro, in vec3 rd ) 
 {
-    float sunDist = length(_SunPos);
+    float sunDist = length(_SunPos - ro);
     float dist = length(_SunPos - (ro + rd * sunDist)) - _SunSize;
     dist = dist < 0.0 ? 0.0 : dist;
     
@@ -406,6 +511,12 @@ vec3 sky( in vec3 ro, in vec3 rd )
 
 //==RENDERING===================================================================================================================================
 
+vec2 mapArch( in vec3 p )
+{
+    // TODO: Arches are unlikely to interact with the rest of the scene significantly, so give them their own map for optimisation
+    return vec2(-1.0);
+}
+
 vec2 map( in vec3 p )
 {    
     vec2 res = vec2(1e10); // (Distance, Material)
@@ -420,7 +531,13 @@ vec2 map( in vec3 p )
     #endif
     
     #if 1
-    res = MIN_MAT(res, sdArch(p, 0.2, 0.04, 0.3));
+    vec3 q = p;
+    q.xz *= rot(PI/4.0);
+    res = MIN_MAT(res, sdBridgeSegment(q, 0.2, 0.04, 0.3));
+    #endif
+    
+    #if 0
+    res = MIN_MAT(res, sdCurvedBridge(p, 0.2, 0.04, 15.0));
     #endif
            
     return res; // returns (distance, material) pair.
@@ -551,7 +668,7 @@ vec3 intersect( in vec3 ro, in vec3 rd )
     
     // TODO: Bounding sphere here is too restrictive. Should move this to individual objects.
     // bounding sphere
-    vec2 tminmax = iSphere( ro, rd, 1000.0 );
+    vec2 tminmax = iSphere( ro, rd, 1000000000.0 );
 	if( tminmax.y>0.0 )
     {
         // raymarch
@@ -661,17 +778,18 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
 	    // camera & movement
         float an = TAU*1.4*iTime/40.0;
-        vec3 ta = vec3( 0.0, 0.0, 0.0 );
+        vec3 ta = CAMERA_TARGET;
+        //vec3 ta = vec3( 0.0, 0.0, 0.0 );
         
         vec2 m = iMouse.xy / iResolution.xy-.5;
         vec3 ro;
         #if USE_DEBUG_CAMERA
         if ( iMouse.x >= 0.0 ) 
         {
-            vec3 target = vec3(0.0);
-            ro = 2.0*vec3(0.8, 0.3, 0.8);
+            ro = DEBUG_CAMERA_DIST*vec3(0.8, 0.3, 0.8);
             ro.yz *= rot(m.y*PI);
             ro.xz *= rot(-m.x*TAU*2.0);
+            ro += ta;
         }
         #else
         //ro = ta + vec3( 1.5*cos(an), 0.3, 1.5*sin(an) );
