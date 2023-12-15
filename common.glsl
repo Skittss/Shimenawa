@@ -43,6 +43,8 @@ float smin( float a, float b, float k )
     return min(a, b) - h*h*0.25/k;
 }
 
+mat2 rot(in float a) { float c = cos(a); float s = sin(a); return mat2(c, s, -s, c); }
+
 //========================================================
 // SDFs
 
@@ -126,14 +128,52 @@ float sdPrism(vec3 position, float halfWidth1, float halfWidth2, float halfHeigh
     return length(max(vec2(d1, d2), 0.0)) + min(max(d1, d2), 0.0);
 }
 
+// https://www.shadertoy.com/view/wsSGDG
+float sdOctahedron(vec3 p, float s)
+{
+    p = abs(p);
+    float m = p.x + p.y + p.z - s;
+    vec3 r = 3.0*p - m;
+    vec3 o = min(r, 0.0);
+    o = max(r*2.0 - o*3.0 + (o.x+o.y+o.z), 0.0);
+    return length(p - s*o/(o.x+o.y+o.z));
+}
+
+// https://www.shadertoy.com/view/Ntd3DX
+// TODO: this is probably too expensive for its use case
+float sdPyramid(vec3 position, float halfWidth, float halfDepth, float halfHeight) {
+    position.y += halfHeight;
+    position.xz = abs(position.xz);
+    vec3 d1 = vec3(max(position.x - halfWidth, 0.0), position.y, max(position.z - halfDepth, 0.0));
+    vec3 n1 = vec3(0.0, halfDepth, 2.0 * halfHeight);
+    float k1 = dot(n1, n1);
+    float h1 = dot(position - vec3(halfWidth, 0.0, halfDepth), n1) / k1;
+    vec3 n2 = vec3(k1, 2.0 * halfHeight * halfWidth, -halfDepth * halfWidth);
+    float m1 = dot(position - vec3(halfWidth, 0.0, halfDepth), n2) / dot(n2, n2);
+    vec3 d2 = position - clamp(position - n1 * h1 - n2 * max(m1, 0.0), vec3(0.0), vec3(halfWidth, 2.0 * halfHeight, halfDepth));
+    vec3 n3 = vec3(2.0 * halfHeight, halfWidth, 0.0);
+    float k2 = dot(n3, n3);
+    float h2 = dot(position - vec3(halfWidth, 0.0, halfDepth), n3) / k2;
+    vec3 n4 = vec3(-halfWidth * halfDepth, 2.0 * halfHeight * halfDepth, k2);
+    float m2 = dot(position - vec3(halfWidth, 0.0, halfDepth), n4) / dot(n4, n4);    
+    vec3 d3 = position - clamp(position - n3 * h2 - n4 * max(m2, 0.0), vec3(0.0), vec3(halfWidth, 2.0 * halfHeight, halfDepth));
+    float d = sqrt(min(min(dot(d1, d1), dot(d2, d2)), dot(d3, d3)));
+    return max(max(h1, h2), -position.y) < 0.0 ? -d : d;
+}
+
+// https://iquilezles.org/articles/distfunctions
+float sdLink( in vec3 p, in float le, in float r1, in float r2 )
+{
+    vec3 q = vec3( p.x, max(abs(p.y)-le,0.0), p.z );
+    return length(vec2(length(q.xy)-r1,q.z)) - r2;
+}
+
 // https://iquilezles.org/articles/distfunctions
 float sdTorus( in vec3 p, in vec2 t )
 {
     vec2 q = vec2(length(p.xz)-t.x,p.y);
     return length(q)-t.y;
 }
-
-mat2 rot(in float a) { float c = cos(a); float s = sin(a); return mat2(c, s, -s, c); }
 
 //========================================================
 // Intersectors
