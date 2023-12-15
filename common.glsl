@@ -26,7 +26,11 @@
 #define GT_BLACK_TIGHTNESS_CURVATURE 1.33
 #define GT_BLACK_TIGHTNESS_OFFSET 0.00
 
+//========================================================
 // RENDERING PARAMS
+
+// Increasing max steps can help render objects at oblique angles
+#define RAYMARCH_MAX_STEPS 128
 #define AA 1
 #define AO_SAMPLES 64.0
 
@@ -187,4 +191,17 @@ vec2 iSphere( in vec3 ro, in vec3 rd, in float rad )
 	if( h<0.0 ) return vec2(-1.0);
     h = sqrt(h);
 	return vec2(-b-h, -b+h );
+}
+
+vec2 iBox( in vec3 ro, in vec3 rd, vec3 boxSize ) 
+{
+    vec3 m = 1.0/rd; // can precompute if traversing a set of aligned boxes
+    vec3 n = m*ro;   // can precompute if traversing a set of aligned boxes
+    vec3 k = abs(m)*boxSize;
+    vec3 t1 = -n - k;
+    vec3 t2 = -n + k;
+    float tN = max( max( t1.x, t1.y ), t1.z );
+    float tF = min( min( t2.x, t2.y ), t2.z );
+    if( tN>tF || tF<0.0) return vec2(-1.0); // no intersection
+    return vec2( tN, tF );
 }

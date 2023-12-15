@@ -3,13 +3,13 @@
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 5.0
+#define DEBUG_CAMERA_DIST 1.0
 #define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 
 #define ZERO (min(iFrame,0))
 
 // Bridge Params
-const float _BridgeBottom = 3.0;
+const float _BridgeBottom = 5.0;
 
 const float strut_interval = 3.50;
 const float n_repetitions = 3.0;
@@ -59,6 +59,7 @@ const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 #define MAT_SHIDE 2.0
 #define MAT_SHIDE_SECONDARY 3.0
 #define MAT_BRIDGE_STONE 4.0
+#define MAT_DEBUG 10000.0
 const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
 //const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
 const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
@@ -419,16 +420,17 @@ vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
     return vec2(d, MAT_BRIDGE_STONE);
 }
 
-vec2 sdBridgeSegment( in vec3 p, in float h, in float r, in float l )
+vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
 {
     // TODO: Should bounding box this whole bridge.
     // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
-    // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.
-    
-    l = 6.0;
-    h = 2.5;
-    
+    // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
     vec2 res = vec2(1e10);
+    
+    // Bounding box
+    // TODO: It's not great having the BB here, as we still have to do an intersection check
+    //         Each step of the raymarch. This might actually make this check slower.
+    //vec2 isect = iBox(
         
     // Transform to correcto origin plane in y
     p.y += _BridgeBottom - h;
@@ -453,11 +455,21 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float r, in float l )
     return res;
 }
 
-vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in vec2 d )
+vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h )
 {
+    // Map bridge to line in XZ plane with line origin (o) and direction in XZ defined by angle from x basis vector (an).
+    // Translate to point on bridge line
+    p -= o;
+    
+    // Rotate domain to fit bridge to desired line
+    p.xz *= rot(an);
+
+    float seg_l = 6.0; 
+    p.x = p.x - 2.0*seg_l * round((p.x - seg_l) / (2.0*seg_l));;
+    
+    return sdBridgeSegment(p, h, seg_l);
     // TODO: Pretty much the same as above, but top func needs replacing with infinite ver.
     // TODO: Otherwise, could just domain warp bridge segments (so long as they're symmetrical).
-    return vec2(-1.0);
 }
 
 vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
@@ -468,7 +480,7 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
         
     // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
     vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
-    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l, r);
+    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l);
     res.x *= 0.8;
     
     return res;
@@ -525,19 +537,22 @@ vec2 map( in vec3 p )
     res = sdTree(p, 0.40, 0.40);
     #endif
     
-    #if 0
+    #if 1
     float r_id;
     res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
     #endif
     
-    #if 1
-    vec3 q = p;
-    q.xz *= rot(PI/4.0);
-    res = MIN_MAT(res, sdBridgeSegment(q, 0.2, 0.04, 0.3));
+    #if 0
+    res = MIN_MAT(res, sdBridgeSegment(p, 2.5, 6.0));
+    #endif
+
+    #if 0
+    res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
+    res = MIN_MAT(res, sdInfiniteBridge(p, vec3(25.0, 0.0, -25.0), PI / 6.0, 4.5));
     #endif
     
     #if 0
-    res = MIN_MAT(res, sdCurvedBridge(p, 0.2, 0.04, 15.0));
+    res = MIN_MAT(res, sdCurvedBridge(p, 2.5, 6.0, 15.0));
     #endif
            
     return res; // returns (distance, material) pair.
@@ -666,14 +681,14 @@ vec3 intersect( in vec3 ro, in vec3 rd )
 {
     vec3 res = vec3(-1.0, 1e10, -1.0);
     
-    // TODO: Bounding sphere here is too restrictive. Should move this to individual objects.
-    // bounding sphere
+    // TODO: One bounding volume might not be enough for this whole scene.
+    //        Ideally could find a way to stop raymarching for specific objects without having to pass ro, rd into map()...
     vec2 tminmax = iSphere( ro, rd, 1000000000.0 );
 	if( tminmax.y>0.0 )
     {
         // raymarch
         float t = max(tminmax.x,0.001);
-        for( int i=0; i<128 && t<tminmax.y; i++ )
+        for( int i=0; i<RAYMARCH_MAX_STEPS && t<tminmax.y; i++ )
         {
             vec2 h = map(ro+t*rd);
             res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
