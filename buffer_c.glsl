@@ -59,12 +59,17 @@ const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 #define MAT_SHIDE 2.0
 #define MAT_SHIDE_SECONDARY 3.0
 #define MAT_BRIDGE_STONE 4.0
+#define MAT_BRIDGE_BRASS 5.0
 #define MAT_DEBUG 10000.0
 const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
 //const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
 const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.412, 0.412);
+const vec3 _MatBridgeStone = 2.0*vec3(0.361, 0.329, 0.370);
+//const vec3 _MatBridgeBrass = vec3(0.940, 0.841, 0.517);
+const vec3 _MatBridgeBrass = vec3(0.840, 0.730, 0.370);
+const vec3 _MatBridgeBrassSpe = vec3(0.370, 0.840, 0.832);
 
 // Illumination
 const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
@@ -226,6 +231,10 @@ float sdSwirl(vec3 p, in float r, in float c, in float f, out float id)
 vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
 {
     vec2 res = vec2(1e10);
+    
+    // Bounding sphere
+    float d = sdSphere(p, r + 0.2);
+    if (d > 0.5) return vec2(d, 1e10);
 
     float ring_t = 0.0;
     float dRing = sdCircleXZ(p, r, ring_t);
@@ -276,6 +285,7 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     }
     #endif
     
+    res.x *= 0.8;
     return res;
 }
 
@@ -304,52 +314,55 @@ vec2 sdTree( in vec3 p, in float h, in float r )
 
 vec2 sdBridgeStrut( in vec3 strut_base, in float h) 
 {
-    float d = 1e10;
+    vec2 res = vec2(1e10);
     
     // strut beam
     vec3 q = strut_base;
-    d = min(d, 
-        sdBox(q, vec3(
-            strut_thickness, 
-            h, 
-            strut_thickness)
-        ) - strut_roundness
-    );
+    res = MIN_MAT(res, vec2(
+        sdBox(q, vec3(strut_thickness, h, strut_thickness)) - strut_roundness, 
+        MAT_BRIDGE_STONE
+    ));
 
     // strut-bridge connector wedge
     q = strut_base - vec3(0.0, h - wedge_height, 0.0);
-    d = min(d, sdPrism(q, strut_thickness, wedge_top_width, wedge_height, strut_thickness) - strut_roundness);
+    res = MIN_MAT(res, vec2(
+        sdPrism(q, strut_thickness, wedge_top_width, wedge_height, strut_thickness) - strut_roundness, 
+        MAT_BRIDGE_STONE
+    ));
 
     // wedge bevels
     //   first wedge
     q = strut_base - vec3(0.0, h, 0.0);
-    d = min(d, 
+    res = MIN_MAT(res, vec2(
         sdBox(q, vec3(
             wedge_top_width + wedge_bevel_extrusion, 
             wedge_bevel_height, 
             strut_thickness + wedge_bevel_extrusion)
-        ) - strut_roundness
-    );
+        ) - strut_roundness,
+        MAT_BRIDGE_BRASS
+    ));
     //   second wedge
     q.y += 2.0 * wedge_height * (1.0 - wedge_bevel_2_ratio);
-    d = min(d, 
+    res = MIN_MAT(res, vec2( 
         sdBox(q, vec3(
             mix(strut_thickness, wedge_top_width, wedge_bevel_2_ratio) + wedge_bevel_extrusion, 
             wedge_bevel_height / 2.0, 
             strut_thickness + wedge_bevel_extrusion)
-        ) - strut_roundness
-    );
+        ) - strut_roundness,
+        MAT_BRIDGE_BRASS
+    ));
 
     // box frame
     q = strut_base; q.y += wedge_height;
     float box_frame_height = h - wedge_height;
-    d = min(d, 
+    res = MIN_MAT(res, vec2(
         sdBoxFrame(q, vec3(
             strut_thickness + strut_box_frame_extrusion, 
             box_frame_height, 
             strut_thickness + strut_box_frame_extrusion
-        ), strut_box_frame_thickness) - strut_roundness
-    );
+        ), strut_box_frame_thickness) - strut_roundness,
+        MAT_BRIDGE_STONE
+    ));
 
     // box frame bevels
     float box_frame_top_offset = wedge_height - box_frame_height + box_frame_bevel_height;
@@ -358,66 +371,81 @@ vec2 sdBridgeStrut( in vec3 strut_base, in float h)
     q.y += box_frame_top_offset; // translate up along strut
     q.y = abs(q.y + 0.5 * box_frame_bevel_sep) - 0.5 * box_frame_bevel_sep; // domain repetition (reflection in xz plane), and center about top bevel.
     float bevel_width = strut_thickness + strut_box_frame_extrusion + box_frame_bevel_extrusion;
-    d = min(d,
+    res = MIN_MAT(res, vec2(
         sdBox(q, vec3(
             bevel_width,
             box_frame_bevel_height,
             bevel_width)
-        ) - strut_roundness
-    );
+        ) - strut_roundness,
+        MAT_BRIDGE_BRASS
+    ));
 
     // bottom
     q = strut_base;
     q.y += box_frame_top_offset + box_frame_bevel_sep + box_frame_bevel_bottom_offset; // translate up along strut
-    d = min(d,
+    res = MIN_MAT(res, vec2(
         sdBox(q, vec3(
             bevel_width,
             box_frame_bevel_height,
             bevel_width)
-        ) - strut_roundness
-    );
+        ) - strut_roundness,
+        MAT_BRIDGE_BRASS
+    ));
 
 
     // link
     q.y -= 0.5 * box_frame_bevel_bottom_offset;
     q.z -= strut_thickness + link_thickness;
-    d = min(d,
-        sdLink(q, 0.65*0.5*box_frame_bevel_bottom_offset, 0.10, link_thickness)
-    );
+    res = MIN_MAT(res, vec2(
+        sdLink(q, 0.65*0.5*box_frame_bevel_bottom_offset, 0.10, link_thickness),
+        MAT_BRIDGE_BRASS
+    ));
     
-    return vec2(d, MAT_BRIDGE_STONE);
+    return res;
 }
 
 vec2 sdBridgeTop( in vec3 p, in float h, in float l ) 
 {
-    float d = 1e10; 
+    vec2 res = vec2(1e10);
     
     vec3 q = p - vec3(l, bridge_top_thickness, 0.0);
-    d = min(d, sdBox(q, vec3(l, bridge_top_thickness, bridge_top_width)));
+    res = MIN_MAT(res, vec2(
+        sdBox(q, vec3(l, bridge_top_thickness, bridge_top_width)),
+        MAT_BRIDGE_STONE
+    ));
     // bridge top bevels
     q.y = abs(q.y) - bridge_top_thickness + bridge_top_bevel_thickness; // domain repetition
-    d = min(d, sdBox(q, vec3(l, bridge_top_bevel_thickness, bridge_top_width + bridge_top_bevel_extrusion)));
+    res = MIN_MAT(res, vec2(
+        sdBox(q, vec3(l, bridge_top_bevel_thickness, bridge_top_width + bridge_top_bevel_extrusion)),
+        MAT_BRIDGE_BRASS
+    ));
     
-    return vec2(d, MAT_BRIDGE_STONE);
+    return res;
 }
 
 vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
 {
-    float d = 1e10;
+    vec2 res = vec2(1e10);
     
     // mini struts        
     //   block
     vec3 q = p;
     //      domain repetition (reflection in xz plane), and center about top bevel.
     q.z = abs(q.z) - bridge_top_width + mini_strut_thickness - mini_strut_z_extrusion; 
-    d = min(d, sdBox(q, vec3(mini_strut_thickness, mini_strut_height, mini_strut_thickness)));
+    res = MIN_MAT(res, vec2(
+        sdBox(q, vec3(mini_strut_thickness, mini_strut_height, mini_strut_thickness)),
+        MAT_BRIDGE_STONE
+    ));
 
     //   spike
     q.y += mini_strut_height + mini_strut_thickness;
     q.y = -q.y;
-    d = min(d, sdPyramid(q, mini_strut_thickness, mini_strut_thickness, mini_strut_thickness));
+    res = MIN_MAT(res, vec2(
+        sdPyramid(q, mini_strut_thickness, mini_strut_thickness, mini_strut_thickness),
+        MAT_BRIDGE_BRASS
+    ));
     
-    return vec2(d, MAT_BRIDGE_STONE);
+    return res;
 }
 
 vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
@@ -426,14 +454,16 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
     // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
     // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
     vec2 res = vec2(1e10);
-    
-    // Bounding box
-    // TODO: It's not great having the BB here, as we still have to do an intersection check
-    //         Each step of the raymarch. This might actually make this check slower.
-    //vec2 isect = iBox(
-        
+            
     // Transform to correcto origin plane in y
     p.y += _BridgeBottom - h;
+    
+    // Bounding box
+    // TODO: If there were a way to move this to before the raymarch, to avoid doing any raymarching at all,
+    //         this would be a lot faster.
+    // TODO: Could create an exact bounding box here if needed.
+    float d = sdBox(p, vec3(2.0*l, h + bridge_top_thickness + 0.3, bridge_top_width + 0.05));
+    if (d > 1.0) return vec2(d, 1e10);
     
     // Domain repetition for struts - render as many struts as we like for the price of one.
     vec3 strut_base = p - vec3(strut_offset, 0.0, 0.0);
@@ -523,7 +553,7 @@ vec3 sky( in vec3 ro, in vec3 rd )
 
 //==RENDERING===================================================================================================================================
 
-vec2 mapArch( in vec3 p )
+vec2 mapBg( in vec3 p )
 {
     // TODO: Arches are unlikely to interact with the rest of the scene significantly, so give them their own map for optimisation
     return vec2(-1.0);
@@ -546,9 +576,9 @@ vec2 map( in vec3 p )
     res = MIN_MAT(res, sdBridgeSegment(p, 2.5, 6.0));
     #endif
 
-    #if 0
+    #if 1
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
-    res = MIN_MAT(res, sdInfiniteBridge(p, vec3(25.0, 0.0, -25.0), PI / 6.0, 4.5));
+    res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5));
     #endif
     
     #if 0
@@ -693,7 +723,7 @@ vec3 intersect( in vec3 ro, in vec3 rd )
             vec2 h = map(ro+t*rd);
             res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
             if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
-            t += 0.8 * h.x; // Coeff here is to try and avoid overshooting at the cost of performance
+            t += h.x; // Coeff here is to try and avoid overshooting at the cost of performance
                             //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
         }
     }
@@ -739,6 +769,25 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
         //return vec3(occ);
         return sss + mix(base_shadow, mat, shadow);
     }
+    else if (CMP_MAT_LT(m, MAT_BRIDGE_STONE))
+    {
+        float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
+        vec3 base_shadow = mix(0.6*_MatBridgeStone, _HorizonCol, 0.15);
+        vec3 albedo = _MatBridgeStone + fre *_SunCol * _SunBrightness;
+        return mix(base_shadow, albedo, shadow);
+    }
+    else if (CMP_MAT_LT(m, MAT_BRIDGE_BRASS))
+    {
+        float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
+        float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
+        ref = smoothstep(0.7, 0.8, ref);
+        vec3 base_shadow = mix(0.6*_MatBridgeBrass, _HorizonCol, 0.15);
+        vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
+        //vec3 albedo = _MatBridgeBrass + fre * (2.0 * _SunCol * _SunBrightness) + ref * _MatBridgeBrassSpe;
+        
+        return mix(base_shadow, albedo, shadow);
+    }
+
     
     vec3 col = vec3(0.0);
     col = 0.5 + 0.5*nor;

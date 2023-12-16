@@ -1,4 +1,4 @@
-// Shadertoy does not support the use of proper float buffers, so we have to store HDR values in the range [0, 1].
+// Shadertoy does not support the use of arbitrary float buffers, so we have to store HDR values in the range [0, 1].
 //  Hacky solution, but we can divide through by a max HDR value before to compensate with HDR calculations.
 #define HDR_MAX_COL 25.0
 
@@ -52,9 +52,14 @@ mat2 rot(in float a) { float c = cos(a); float s = sin(a); return mat2(c, s, -s,
 //========================================================
 // SDFs
 
+float sdSphere( vec3 p, float s )
+{
+    return length(p)-s;
+}
+
 // https://iquilezles.org/articles/distfunctions
 // a and b are start points, with radii provided
-float sdCone(vec3 p, vec3 a, vec3 b, float ra, float rb)
+float sdCone( vec3 p, vec3 a, vec3 b, float ra, float rb )
 {
     float rba  = rb-ra;
     float baba = dot(b-a,b-a);
@@ -191,17 +196,4 @@ vec2 iSphere( in vec3 ro, in vec3 rd, in float rad )
 	if( h<0.0 ) return vec2(-1.0);
     h = sqrt(h);
 	return vec2(-b-h, -b+h );
-}
-
-vec2 iBox( in vec3 ro, in vec3 rd, vec3 boxSize ) 
-{
-    vec3 m = 1.0/rd; // can precompute if traversing a set of aligned boxes
-    vec3 n = m*ro;   // can precompute if traversing a set of aligned boxes
-    vec3 k = abs(m)*boxSize;
-    vec3 t1 = -n - k;
-    vec3 t2 = -n + k;
-    float tN = max( max( t1.x, t1.y ), t1.z );
-    float tF = min( min( t2.x, t2.y ), t2.z );
-    if( tN>tF || tF<0.0) return vec2(-1.0); // no intersection
-    return vec2( tN, tF );
 }
