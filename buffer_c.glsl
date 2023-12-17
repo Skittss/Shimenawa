@@ -48,6 +48,10 @@ const float mini_strut_thickness = 0.075;
 const float mini_strut_y_extrusion = 0.05;
 const float mini_strut_z_extrusion = 0.07;
 
+// Infinite bridges
+const float _InfBridgeAnimSpeed = 0.5;
+const float _InfBridgeLowOffset = 10.0;
+
 // Rope Params
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
 const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
@@ -215,15 +219,12 @@ float sdSwirl(vec3 p, in float r, in float c, in float f, out float id)
 {
     // Rotate and twist a capsule to make the rope along the x axis
     float l = TAU * r; // circumference rope length
+    
     p.yz*=rot(p.x*PI*f); // twisting; 45-deg per x
-    //p.yz = abs(p.yz)-0.25; // 4 for the price of one
-    //p.yz = (p.yz + vec2(p.z, -p.y))*sqrt(0.5); // Shortcut for 45-degrees rotation
     vec2 sector = step(0.0,p.yz);
     id = sector.x + 2.0 * sector.y;
     p.y = abs(p.y) - 0.02;
-    //p.yz = abs(p.yz)-0.05;
-    //p.yz*=rot(p.x*PI*4.0);
-    //p.yz = abs(p.yz)-0.02;
+    
     float d = sdVerticalCapsule(p,c,l); //Potentially better solution exists with capped torus
     return d;
 }
@@ -450,7 +451,6 @@ vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
 
 vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
 {
-    // TODO: Should bounding box this whole bridge.
     // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
     // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
     vec2 res = vec2(1e10);
@@ -461,7 +461,7 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
     // Bounding box
     // TODO: If there were a way to move this to before the raymarch, to avoid doing any raymarching at all,
     //         this would be a lot faster.
-    // TODO: Could create an exact bounding box here if needed.
+    // TODO: Could create a more exact bounding box here if needed.
     float d = sdBox(p, vec3(2.0*l, h + bridge_top_thickness + 0.3, bridge_top_width + 0.05));
     if (d > 1.0) return vec2(d, 1e10);
     
@@ -498,8 +498,38 @@ vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h )
     p.x = p.x - 2.0*seg_l * round((p.x - seg_l) / (2.0*seg_l));;
     
     return sdBridgeSegment(p, h, seg_l);
-    // TODO: Pretty much the same as above, but top func needs replacing with infinite ver.
-    // TODO: Otherwise, could just domain warp bridge segments (so long as they're symmetrical).
+}
+
+vec2 sdInfiniteBridgeAnimated( 
+    in vec3 p, in vec3 o, in float an, in float h,
+    const float sep, const float phase, const float n_seg, const float min_bound, const float max_bound
+) {
+    // TODO: translation up and down causes raymarching distortion. needs fix.
+    p -= o;
+    p.xz *= rot(an);
+    
+    float seg_l = 6.0;
+    float rep_id = round((p.x - seg_l) / (2.0*seg_l));
+    p.x = p.x - 2.0*seg_l * rep_id; // domain repetition
+
+    // which repetition id should be at its animation xenith
+    float high_center_id = mod(_InfBridgeAnimSpeed*iTime, sep) + phase; 
+    // make repetitions periodic
+    float mod_rep_id = mod(rep_id, sep);
+    
+    // Get circular difference between two periodic ids (i.e. 19 - 0  = 1 (mod 20), not 19).
+    //  This determines how far we are from the bridge arc xenith.
+    //  as it turns out, this is the same as the distance between two elements of a ring 0 -> n-1: min(|i - j|, n - |i - j|).
+    float diff = min(abs(mod_rep_id - high_center_id), sep - abs(mod_rep_id - high_center_id)); 
+    
+    // Clamp signal to: linear 0->1 if on edge, 1 if low, 0 if high
+    float edge_diff = clamp(diff, n_seg, n_seg + 1.0) - n_seg;
+    edge_diff = pow(edge_diff, 3.5); // ease in edges with power curve
+    edge_diff = (rep_id < min_bound || rep_id > max_bound) ? 1.0 : edge_diff; // Limit periodic function to certain range.
+    
+    p.y += _InfBridgeLowOffset * edge_diff;
+    
+    return sdBridgeSegment(p, h, seg_l);
 }
 
 vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
@@ -525,11 +555,7 @@ vec3 sky( in vec3 ro, in vec3 rd )
     dist = dist < 0.0 ? 0.0 : dist;
     
     float ry = _HorizonOffset + rd.y;
-    
-    //float haloDist = clamp((dist - 4.0) * 0.015, 0.0, 1.0);
-    //float halo = pow(haloDist, 0.5);
-    //vec3 sun = halo * _SunCol;
-    
+        
     // Atmosphere
     float zenith  = 1.0 - pow(min(1.0, 1.0 - ry), _ZenithAttenuation);
     float nadir   = 1.0 - pow(min(1.0, 1.0 + ry), _NadirAttenuation);
@@ -553,6 +579,20 @@ vec3 sky( in vec3 ro, in vec3 rd )
 
 //==RENDERING===================================================================================================================================
 
+vec2 mapClouds( in vec3 p )
+{
+    vec2 res = vec2(1e10); // (Distance, Material)
+    
+    #if 0
+    res = MIN_MAT(res, vec2(
+        sdSphere(p, 0.3),
+        MAT_DEBUG
+    ));
+    #endif
+    
+    return res;
+}
+
 vec2 mapBg( in vec3 p )
 {
     // TODO: Arches are unlikely to interact with the rest of the scene significantly, so give them their own map for optimisation
@@ -567,20 +607,36 @@ vec2 map( in vec3 p )
     res = sdTree(p, 0.40, 0.40);
     #endif
     
-    #if 1
+    // Rope
+    #if 0
     float r_id;
     res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
     #endif
     
+    // Bridge Segment
     #if 0
     res = MIN_MAT(res, sdBridgeSegment(p, 2.5, 6.0));
     #endif
 
-    #if 1
+    // Static Inf Bridges
+    #if 0
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5));
     #endif
     
+    // Animated Inf Bridges
+    #if 1
+    res = MIN_MAT(res, sdInfiniteBridgeAnimated(
+        p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5,
+        40.0, 0.0, 1.0, -20.0, 20.0
+    ));
+    res = MIN_MAT(res, sdInfiniteBridgeAnimated(
+        p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5,
+        40.0, 0.0, 1.0, -20.0, 20.0
+    ));
+    #endif
+    
+    // Curved bridge segment
     #if 0
     res = MIN_MAT(res, sdCurvedBridge(p, 2.5, 6.0, 15.0));
     #endif
@@ -693,7 +749,7 @@ vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 {
     // Create an outline around objects within a certain radius around the sun.
     //    The view direction dot product can be used to determine the radius.
-    //    Raymarching near missesare used to generate the outline. 
+    //    Raymarching near misses are used to generate the outline. 
     //   Then, a power curve is used to decay the outline based on distance from the sun.
     float rd_dot_sun = dot(rd, normalize(_SunPos - ro));
     
@@ -721,6 +777,30 @@ vec3 intersect( in vec3 ro, in vec3 rd )
         for( int i=0; i<RAYMARCH_MAX_STEPS && t<tminmax.y; i++ )
         {
             vec2 h = map(ro+t*rd);
+            res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
+            if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
+            t += h.x; // Coeff here is to try and avoid overshooting at the cost of performance
+                            //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
+        }
+    }
+    
+    return res; // t, nearest, mat_id
+}
+
+vec3 intersectClouds( in vec3 ro, in vec3 rd )
+{
+    vec3 res = vec3(-1.0, 1e10, -1.0);
+    
+    // TODO: One bounding volume might not be enough for this whole scene.
+    //        Ideally could find a way to stop raymarching for specific objects without having to pass ro, rd into map()...
+    vec2 tminmax = iSphere( ro, rd, 1000000000.0 );
+    if( tminmax.y>0.0 )
+    {
+        // raymarch
+        float t = max(tminmax.x,0.001);
+        for( int i=0; i<RAYMARCH_MAX_STEPS && t<tminmax.y; i++ )
+        {
+            vec2 h = mapClouds(ro+t*rd);
             res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
             if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
             t += h.x; // Coeff here is to try and avoid overshooting at the cost of performance
@@ -796,6 +876,16 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
     return 1.2*col;
 }
 
+vec3 shadeClouds( in vec3 ro, in vec3 rd, in float t, in float m ) 
+{
+    return vec3(1.0);
+    //vec3 col = vec3(0.0);
+    //col = 0.5 + 0.5*nor;
+    //col = mix(vec3(0.0), col, shadow);
+
+    //return 1.2*col;
+}
+
 vec3 render ( in vec3 ro, in vec3 rd ) 
 {
     // background
@@ -807,6 +897,12 @@ vec3 render ( in vec3 ro, in vec3 rd )
     if( tm.x>0.0 )
     {
         col = shade(ro, rd, tm.x, tm.z);
+    }
+    
+    tm = intersectClouds( ro, rd );
+    if( tm.x>0.0 )
+    {
+        col = shadeClouds(ro, rd, tm.x, tm.z);
     }
     
     // TODO: This should only be applied to certain materials that SSS (and to varying extents?)

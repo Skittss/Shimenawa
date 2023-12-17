@@ -40,7 +40,6 @@ vec3 gt_tonemap(vec3 x) {
     return T * w0 + L * w1 + S * w2;
 }
 
-
 vec3 bloom_mipmap(float mipmap_exp, vec2 offset, vec2 uv) 
 {
     // This reverse mapping is inaccurate, and causes slight edge bleeding because no access to more buffers T^T
@@ -51,9 +50,7 @@ vec3 bloom_mipmap(float mipmap_exp, vec2 offset, vec2 uv)
 }
 
 vec3 get_bloom(vec2 uv)
-{
-    //vec3 blur = vec3(0.0);
-    
+{ 
     vec3 blur = bloom_mipmap(1.0, vec2(0.0), uv);
         blur += bloom_mipmap(2.0, vec2(0.0), uv);
         blur += bloom_mipmap(3.0, vec2(0.0), uv);
