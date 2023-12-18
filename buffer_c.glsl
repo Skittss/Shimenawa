@@ -2,9 +2,12 @@
 #define PI  3.14159265
 #define TAU 6.28318533
 
-#define USE_DEBUG_CAMERA 1
+#define USE_DEBUG_CAMERA 0
 #define DEBUG_CAMERA_DIST 1.0
-#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
+#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
+
+// Fast bridges do not correct broken SDF and will cause artifacts, but are considerably faster
+#define SLOWER_BRIDGES 1
 
 #define ZERO (min(iFrame,0))
 
@@ -50,7 +53,7 @@ const float mini_strut_z_extrusion = 0.07;
 
 // Infinite bridges
 const float _InfBridgeAnimSpeed = 0.5;
-const float _InfBridgeLowOffset = 10.0;
+const float _InfBridgeLowOffset = 8.0;
 
 // Rope Params
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
@@ -504,13 +507,27 @@ vec2 sdInfiniteBridgeAnimated(
     in vec3 p, in vec3 o, in float an, in float h,
     const float sep, const float phase, const float n_seg, const float min_bound, const float max_bound
 ) {
-    // TODO: translation up and down causes raymarching distortion. needs fix.
-    p -= o;
-    p.xz *= rot(an);
+    // TODO: There is a lot of wasted work here... especially on bridge segments that are not visible.
+    vec2 res = vec2(1e10);
+    
+    // Potentially 3x the work.. but the SDF is correct.
+    //  The inclusion of this for loop also makes compilation very slow - I guess this whole section is being inlined by the compiler?
+    //    Suggestions for fixes are welcome :)
+    #if SLOWER_BRIDGES
+    for (int i=-1; i<2; i++)
+    {
+    #else
+    int i = 0;
+    #endif
+    
+    vec3 q = p;
+    q -= o;
+    q.xz *= rot(an);
     
     float seg_l = 6.0;
-    float rep_id = round((p.x - seg_l) / (2.0*seg_l));
-    p.x = p.x - 2.0*seg_l * rep_id; // domain repetition
+    float rep_id = float(i) + (round((q.x - seg_l) / (2.0*seg_l)));
+
+    q.x = q.x - 2.0*seg_l * rep_id; // domain repetition
 
     // which repetition id should be at its animation xenith
     float high_center_id = mod(_InfBridgeAnimSpeed*iTime, sep) + phase; 
@@ -520,16 +537,31 @@ vec2 sdInfiniteBridgeAnimated(
     // Get circular difference between two periodic ids (i.e. 19 - 0  = 1 (mod 20), not 19).
     //  This determines how far we are from the bridge arc xenith.
     //  as it turns out, this is the same as the distance between two elements of a ring 0 -> n-1: min(|i - j|, n - |i - j|).
-    float diff = min(abs(mod_rep_id - high_center_id), sep - abs(mod_rep_id - high_center_id)); 
+    float diff = min(abs(mod_rep_id - high_center_id), sep - abs(mod_rep_id - high_center_id));
+    
+    // This optimisation is terrible and bugged as hell, but somehow it kind of works.
+    if (diff > n_seg + 6.0) return vec2(1e10);
     
     // Clamp signal to: linear 0->1 if on edge, 1 if low, 0 if high
     float edge_diff = clamp(diff, n_seg, n_seg + 1.0) - n_seg;
+    float diff_plus_one = clamp(diff, n_seg, n_seg + 2.0) - (n_seg + 1.0);
     edge_diff = pow(edge_diff, 3.5); // ease in edges with power curve
     edge_diff = (rep_id < min_bound || rep_id > max_bound) ? 1.0 : edge_diff; // Limit periodic function to certain range.
     
-    p.y += _InfBridgeLowOffset * edge_diff;
+    q.y += _InfBridgeLowOffset * edge_diff;
     
-    return sdBridgeSegment(p, h, seg_l);
+    #if SLOWER_BRIDGES
+    res = MIN_MAT(res, sdBridgeSegment(q, h, seg_l));
+    }
+    #else
+    res = sdBridgeSegment(q, h, seg_l);
+    #endif
+    
+    // Clip low bridges
+    float clip_dist = p.y + _BridgeBottom;
+    res.x = max(-clip_dist, res.x); // Boolean subtraction
+
+    return res;
 }
 
 vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
@@ -608,7 +640,7 @@ vec2 map( in vec3 p )
     #endif
     
     // Rope
-    #if 0
+    #if 1
     float r_id;
     res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
     #endif
@@ -619,21 +651,29 @@ vec2 map( in vec3 p )
     #endif
 
     // Static Inf Bridges
-    #if 0
+    #if 1
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5));
     #endif
     
     // Animated Inf Bridges
     #if 1
+    {
     res = MIN_MAT(res, sdInfiniteBridgeAnimated(
-        p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5,
+        p, vec3(60.0, 0.0, 60.0), PI / 2.0, 2.5,
         40.0, 0.0, 1.0, -20.0, 20.0
     ));
+    
+    // TODO: There is a bug where the high bridges do not update correctly with the following.
+    /*
+    vec3 q = p;
+    q.xz *= rot(PI);
     res = MIN_MAT(res, sdInfiniteBridgeAnimated(
-        p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5,
-        40.0, 0.0, 1.0, -20.0, 20.0
+        q, vec3(-35.0, 0.0, -35.0), PI / 2.0, 1.5,
+        40.0, 2.0*TAU, 1.0, -20.0, 20.0, 1.0
     ));
+    */
+    }
     #endif
     
     // Curved bridge segment
@@ -803,8 +843,7 @@ vec3 intersectClouds( in vec3 ro, in vec3 rd )
             vec2 h = mapClouds(ro+t*rd);
             res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
             if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
-            t += h.x; // Coeff here is to try and avoid overshooting at the cost of performance
-                            //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
+            t += h.x;
         }
     }
     
@@ -898,7 +937,8 @@ vec3 render ( in vec3 ro, in vec3 rd )
     {
         col = shade(ro, rd, tm.x, tm.z);
     }
-    
+    col += sunSSSOutline(ro, rd, tm.y);
+
     tm = intersectClouds( ro, rd );
     if( tm.x>0.0 )
     {
@@ -906,7 +946,6 @@ vec3 render ( in vec3 ro, in vec3 rd )
     }
     
     // TODO: This should only be applied to certain materials that SSS (and to varying extents?)
-    col += sunSSSOutline(ro, rd, tm.y);
     
     return col;
 }
@@ -939,7 +978,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 	    // camera & movement
         float an = TAU*1.4*iTime/40.0;
         vec3 ta = CAMERA_TARGET;
-        //vec3 ta = vec3( 0.0, 0.0, 0.0 );
         
         vec2 m = iMouse.xy / iResolution.xy-.5;
         vec3 ro;
@@ -952,9 +990,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
             ro += ta;
         }
         #else
-        //ro = ta + vec3( 1.5*cos(an), 0.3, 1.5*sin(an) );
-        ro = ta + vec3( cos(an), -0.3, sin(an) );
-        //ro = ta + vec3( 0.001, 2.0, 0.0 );
+        //ro = ta + vec3( cos(an), -0.3, sin(an) );
+        ro = ta + vec3( cos(an), 0.3*sin(2.0*an), sin(an) );
         #endif
         
         // camera-to-world transformation
