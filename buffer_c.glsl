@@ -2,17 +2,17 @@
 #define PI  3.14159265
 #define TAU 6.28318533
 
-#define USE_DEBUG_CAMERA 0
-#define DEBUG_CAMERA_DIST 1.0
+#define USE_DEBUG_CAMERA 1
+#define DEBUG_CAMERA_DIST 15.0
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Fast bridges do not correct broken SDF and will cause artifacts, but are considerably faster
-#define SLOWER_BRIDGES 1
+#define SLOWER_BRIDGES 0
 
 #define ZERO (min(iFrame,0))
 
 // Bridge Params
-const float _BridgeBottom = 5.0;
+const float _BelowCloudBottom = 5.0;
 
 const float strut_interval = 3.50;
 const float n_repetitions = 3.0;
@@ -54,6 +54,28 @@ const float mini_strut_z_extrusion = 0.07;
 // Infinite bridges
 const float _InfBridgeAnimSpeed = 0.5;
 const float _InfBridgeLowOffset = 8.0;
+const float _InfBridgeAnimSegLen = 6.0;
+
+// Pillar Params
+const float pillar_roundness = 0.001;
+const float bevel_roundness = 0.01;
+const float bevel_extrusion = 0.1;
+const float bevel_height = 0.075;
+const float bevel_n_rep = 4.0;
+
+const float v_bevel_extrusion = 0.05;
+const float v_bevel_thickness = 0.05;
+const float v_bevel_roundness = 0.03;
+const float v_bevel_n = 16.0; // TODO: High n looks bad at far distances due to aliasing, so LOD this.
+
+const float cap_height  = 0.47;
+const float cap_extrusion = 0.45;
+
+const float pillar_seg_height = 4.3;
+
+const float little_pillar_h = 1.0;
+const float little_pillar_r = 0.125;
+const float little_pillar_n = 3.0; // smaller numbers (generally odd) give better silhouettes across multiple viewing angles
 
 // Rope Params
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
@@ -67,16 +89,24 @@ const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 #define MAT_SHIDE_SECONDARY 3.0
 #define MAT_BRIDGE_STONE 4.0
 #define MAT_BRIDGE_BRASS 5.0
+#define MAT_PILLAR_STONE 6.0
+#define MAT_PILLAR_GOLD  7.0
 #define MAT_DEBUG 10000.0
+
 const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
 //const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
 const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.412, 0.412);
+
 const vec3 _MatBridgeStone = 2.0*vec3(0.361, 0.329, 0.370);
 //const vec3 _MatBridgeBrass = vec3(0.940, 0.841, 0.517);
 const vec3 _MatBridgeBrass = vec3(0.840, 0.730, 0.370);
 const vec3 _MatBridgeBrassSpe = vec3(0.370, 0.840, 0.832);
+
+const vec3 _MatPillarStone = 0.8*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
+const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 
 // Illumination
 const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
@@ -121,7 +151,8 @@ vec2 MIN_MAT(vec2 a, vec2 b)
     return (a.x < b.x) ? a : b;
 }
 
-//util functions for AO
+
+// util functions for AO
 // https://www.shadertoy.com/view/ld3Gz2
 float hash1(float n)
 {
@@ -138,6 +169,7 @@ vec3 forwardSF(float i, float n)
 
 //==SDF===========================================================================================================================================
 
+//==SHIMENAWA=====================================================================================================================================
 float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
 {
     // 紙垂 multiple zig-zag boxes
@@ -190,15 +222,13 @@ float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
 // p is position of top, s is scale
 float sdKiraretanawa( in vec3 p, in float s, in float connectorOffset, in float id )
 {
-    // TODO: scaling is as simple as scaling p i.e. p / s.
+    // TODO: scaling is as simple as pre-scaling p i.e. p / s.
     //         This makes the *s operations in this function completely redundant.
     
     // Offset rotation to make object sway
     p.yz *= rot(_KiraretanawaWindParamsYZ.x * sin(_KiraretanawaWindParamsYZ.y * 0.89 * iTime + 71.0 * id));
     p.yx *= rot(_KiraretanawaWindParamsYX.x * cos(_KiraretanawaWindParamsYX.y * 0.57 * iTime + 31.0 * id));
     p.y += connectorOffset;
-
-    // TODO: is diving multiplying d by s at the end equivalent to this scaling??
         
     float d = sdCone(p + s * vec3(0., 0.6, 0.), vec3(0.), s * vec3(0.,0.5,0.), s * 0.32, s * 0.1) - s * 0.05;
     d = min(d, sdCappedCylinder(p, s * 0.06, s * 0.12) - s * 0.015);
@@ -247,6 +277,7 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     //p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
     
     #if 1
+    // Swirly Rope
     if (dRing < 0.8) // approx bounding ring
     {    
         // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
@@ -256,6 +287,7 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     }
     #endif
     
+    // Shide
     #if 1
     {
     vec3 q = p;
@@ -270,14 +302,14 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     }
     #endif
     
+    // Cut Ropes
     #if 1
     {
-    // I think this rotation could be done in one go, but my brain is a mess thinking about the domain repetition here -.-
+    // TODO: This rotation is horrendously jank - I *should* fix it.
     vec3 q_s = p;
     
     // Prerotate offset
     float an = TAU/14.0;
-    float co = cos(an), si = sin(an);
     q_s.xz *= rot(an);
     
     an = TAU/7.0;
@@ -316,6 +348,132 @@ vec2 sdTree( in vec3 p, in float h, in float r )
     return vec2(min(dTree, db), m);
 }
 
+//==PILLARS=======================================================================================================================================
+vec2 sdPillarSeg( in vec3 p, in float r, in float core_r )
+{
+    // TODO: Could LOD this pillar segment.
+    vec2 res = vec2(1e10);
+    
+    const float pillar_height = pillar_seg_height - 0.5*cap_height;
+        
+    // TODO: Cylindrical bounding volume here.
+    float d = sdCappedCylinder(p, 2.0*(pillar_seg_height + little_pillar_h) + cap_height + bevel_height, r + cap_extrusion);
+    if (d > 1.0) return vec2(d, 1e10);
+    
+    // big cylinder
+    vec3 cyl_base = p + vec3(0.0, 0.5*cap_height, 0.0);
+    res = MIN_MAT(res, vec2(
+        sdCappedCylinder(cyl_base, pillar_height, r) - pillar_roundness,
+        MAT_PILLAR_STONE
+    ));
+    
+    // horizontal bevels
+    {
+    vec3 q = cyl_base + vec3(0.0, pillar_height, 0.0);
+    float interval = 2.0*pillar_height / bevel_n_rep;
+    float rep_id = clamp(round((q.y / interval)), 0.0, bevel_n_rep);
+    q.y -= rep_id * interval;
+    res = MIN_MAT(res, vec2(
+        sdCappedCylinder(q, bevel_height, r + bevel_extrusion) - bevel_roundness,
+        MAT_PILLAR_GOLD
+    ));
+    }
+    
+    // vertical bevels (to look like pillar indents)
+    {
+    vec3 q = cyl_base;
+    
+    //   rotatational domain repetition
+    float an = TAU/v_bevel_n;
+    float sector = round(atan(q.z,q.x)/an);
+    float angrot = an*(sector);
+    q.xz *= rot(angrot);
+    
+    res = MIN_MAT(res, vec2(
+        sdBox(q - vec3(r, 0.0, 0.0), vec3(v_bevel_extrusion, pillar_height, v_bevel_thickness)) - v_bevel_roundness,
+        MAT_PILLAR_STONE
+    ));
+    }
+    
+    // small radial sub-pillars
+    {
+    vec3 q = p;
+    q.y -= pillar_seg_height + little_pillar_h;
+    
+    //   rotatational domain repetition
+    float an = TAU/little_pillar_n;
+    float sector = round(atan(q.z,q.x)/an);
+    float angrot = an*(sector);
+    q.xz *= rot(angrot);
+
+    res = MIN_MAT(res, vec2(
+        sdCappedCylinder(q - vec3(0.7*r, 0.0, 0.0), little_pillar_h, little_pillar_r),
+        MAT_PILLAR_STONE
+    ));
+    }
+    
+    // Cone caps
+    {
+    vec3 q = p;
+    q.y -= pillar_seg_height - cap_height;
+    float interval = 2.0*little_pillar_h + cap_height;
+    float rep_id = clamp(round((q.y / interval)), 0.0, 1.0);
+    q.y -= rep_id * interval;
+    res = MIN_MAT(res, vec2(
+        sdCone(q, vec3(0.0), vec3(0.0, cap_height, 0.0), r, r + cap_extrusion) - pillar_roundness,
+        MAT_PILLAR_STONE
+    ));
+    /*
+    vec3 q = p;
+    q.y -= pillar_seg_height + 2.0*little_pillar_h;
+    float qsign = sign(q.y + little_pillar_h);
+    float sep = little_pillar_h + 0.5*cap_height;
+    q.y = abs(q.y + sep) - sep;
+    res = MIN_MAT(res, vec2(
+        sdCone(q, vec3(0.0), vec3(0.0, qsign * cap_height, 0.0), r, r + cap_extrusion) - roundness,
+        MAT_BRIDGE_STONE
+    ));
+    */
+    }
+        
+    return res;
+}
+
+vec2 sdPillar( in vec3 p, in float n_rep, in float r, in float core_r )
+{    
+    float full_pillar_height = 2.0*(pillar_seg_height + little_pillar_h) + cap_height;
+    p.y += _BelowCloudBottom + 0.5 * full_pillar_height;
+    
+    // check i = n'th repetition for current rep's SDF
+    float rep_id = clamp(round((p.y / full_pillar_height)), 0.0, n_rep);
+    p.y -= rep_id * full_pillar_height;
+
+    vec2 res = sdPillarSeg(p, r, core_r);
+    
+    if (rep_id < 1.0) return res;
+    
+    // check i = n-1'th repetition to ensure SDF correctness.
+    p.y += full_pillar_height;
+    res = MIN_MAT(res, sdPillarSeg(p, r, core_r));
+
+    return res;
+}
+
+vec2 sdPillars( in vec3 p )
+{
+    // TODO: Make pillar field interesting by modifying certain parameters 
+    //    - Bottom offset between 0 -> 1 * h (so pillars have 'phase')
+    //    - N small pillars, probably 2 -> 6
+    //    - Big pillar radius
+    //    - N repetitions (further pillars can be taller)
+    //    - N H and V bevels (further pillars should have fewer)
+    //    
+    
+    // Smaller pillars closer to origin, some really large ones in the distance.
+    return sdPillar(p + vec3(0.0, 0.0, 0.0), 2.0, 1.0, 1.0);
+}
+
+//==BRIDGES=======================================================================================================================================
 vec2 sdBridgeStrut( in vec3 strut_base, in float h) 
 {
     vec2 res = vec2(1e10);
@@ -452,6 +610,12 @@ vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
     return res;
 }
 
+vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
+{
+    // TODO: If we LOD the bridges, we should be able to a few more.
+    return vec2(1e10);
+}
+
 vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
 {
     // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
@@ -459,7 +623,7 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
     vec2 res = vec2(1e10);
             
     // Transform to correcto origin plane in y
-    p.y += _BridgeBottom - h;
+    p.y += _BelowCloudBottom - h;
     
     // Bounding box
     // TODO: If there were a way to move this to before the raymarch, to avoid doing any raymarching at all,
@@ -511,8 +675,8 @@ vec2 sdInfiniteBridgeAnimated(
     vec2 res = vec2(1e10);
     
     // Potentially 3x the work.. but the SDF is correct.
-    //  The inclusion of this for loop also makes compilation very slow - I guess this whole section is being inlined by the compiler?
-    //    Suggestions for fixes are welcome :)
+    //  The inclusion of this for loop also makes compilation very slow. Not exactly sure why but I don't think its due to 
+    //     Suggestions for fixes are welcome :) (if even possible - it is a lot of work being done here.)
     #if SLOWER_BRIDGES
     for (int i=-1; i<2; i++)
     {
@@ -558,7 +722,7 @@ vec2 sdInfiniteBridgeAnimated(
     #endif
     
     // Clip low bridges
-    float clip_dist = p.y + _BridgeBottom;
+    float clip_dist = p.y + _BelowCloudBottom;
     res.x = max(-clip_dist, res.x); // Boolean subtraction
 
     return res;
@@ -640,9 +804,14 @@ vec2 map( in vec3 p )
     #endif
     
     // Rope
-    #if 1
+    #if 0
     float r_id;
     res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
+    #endif
+    
+    // Pillars
+    #if 1
+    res = MIN_MAT(res, sdPillars(p));
     #endif
     
     // Bridge Segment
@@ -719,34 +888,6 @@ float calcSSS( in vec3 pos, in vec3 nor )
     }
     occ = clamp( 1.0 - 11.0*occ/float(N_SAMPLES), 0.0, 1.0 );    
     return occ*occ;
-}
-
-// https://iquilezles.org/articles/rmshadows
-// Soft Shadows with no backtracking
-// Generally slower and less accurate than with backtracking, but with more predictable behavior for distorted interior SDFs
-float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float w )
-{
-	float res = 1.0;
-    float t = mint;
-    float ph = 1e10; // big, such that y = 0 on the first iteration
-    
-    for( int i=0; i<32; i++ )
-    {
-        // TODO: Mapping of big rope is problematic, separate out conservative step.
-		float h = map( ro + rd*t ).x;
-        float y = h*h/(2.0*ph);
-        float d = sqrt(h*h-y*y);
-        res = min( res, d/(w*max(0.0,t-y)) );
-        ph = h;
-        
-        // TODO: Apply this conservative step ONLY to the rope
-        t += 0.75*h;
-        
-        if( res < 0.0001 || t > maxt ) break;
-        
-    }
-    res = clamp( res, 0.0, 1.0 );
-    return res*res*(3.0-2.0*res);
 }
 
 // https://iquilezles.org/articles/rmshadows
@@ -852,9 +993,11 @@ vec3 intersectClouds( in vec3 ro, in vec3 rd )
 
 vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m ) 
 {
+    // TODO: Bridges and pillars should cast (relatively) sharp shadows on one another, so they need a separate map func.
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormal(pos);
-    float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 2.0);
+    //float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 2.0); // Soft
+    float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 10.0); // Sharp
     float occ = calcAO(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
     //shadow = (shadow + occ) / 2.0;
@@ -906,6 +1049,25 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
         
         return mix(base_shadow, albedo, shadow);
     }
+    else if (CMP_MAT_LT(m, MAT_PILLAR_STONE))
+    {
+        float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
+        vec3 base_shadow = mix(0.6*_MatPillarStone, _HorizonCol, 0.15);
+        vec3 albedo = _MatPillarStone + fre *_SunCol * _SunBrightness;
+        return mix(base_shadow, albedo, shadow);
+    }
+    else if (CMP_MAT_LT(m, MAT_PILLAR_GOLD))
+    {
+        float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
+        float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
+        ref = smoothstep(0.7, 0.8, ref);
+        vec3 base_shadow = mix(0.6*_MatBridgeBrass, _HorizonCol, 0.15);
+        vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
+        //vec3 albedo = _MatBridgeBrass + fre * (2.0 * _SunCol * _SunBrightness) + ref * _MatBridgeBrassSpe;
+        
+        return mix(base_shadow, albedo, shadow);
+    }
+
 
     
     vec3 col = vec3(0.0);
@@ -963,6 +1125,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec3 tot = vec3(0.0);
 
+    // SSAA
     #if AA>1
     for( int m=ZERO; m<AA; m++ )
     for( int n=ZERO; n<AA; n++ )
