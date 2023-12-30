@@ -4,7 +4,8 @@
 
 #define USE_DEBUG_CAMERA 1
 #define DEBUG_CAMERA_DIST 15.0
-#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
+#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
+//#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Fast bridges do not correct broken SDF and will cause artifacts, but are considerably faster
 #define SLOWER_BRIDGES 0
@@ -52,7 +53,7 @@ const float mini_strut_y_extrusion = 0.05;
 const float mini_strut_z_extrusion = 0.07;
 
 // Infinite bridges
-const float _InfBridgeAnimSpeed = 0.5;
+const float _InfBridgeAnimSpeed = 0.3;
 const float _InfBridgeLowOffset = 8.0;
 const float _InfBridgeAnimSegLen = 6.0;
 
@@ -469,8 +470,23 @@ vec2 sdPillars( in vec3 p )
     //    - N H and V bevels (further pillars should have fewer)
     //    
     
+    const vec2 spacing = vec2(50.0);
+    
+    vec2 id = round(p.xz / spacing);
+    
+    float len_id = length(id);
+    
+    //if (len_id < 5.0 || len_id > 10.0) return vec2(1e10);
+    
+    vec3 q = p;
+    q.xz = p.xz - spacing * id;
+    //float height = mod(131.5*id.x + 13.8*id.y, 4.0);
+    //q.xz += vec2(0.1, 0.2) + 1.0 * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
+    
+    return sdPillar(q, 2.0, 1.0, 1.0);
+    
     // Smaller pillars closer to origin, some really large ones in the distance.
-    return sdPillar(p + vec3(0.0, 0.0, 0.0), 2.0, 1.0, 1.0);
+    //return sdPillar(p + vec3(0.0, 0.0, 0.0), 3.0, 1.0, 1.0);
 }
 
 //==BRIDGES=======================================================================================================================================
@@ -693,13 +709,13 @@ vec2 sdInfiniteBridgeAnimated(
 
     q.x = q.x - 2.0*seg_l * rep_id; // domain repetition
 
-    // which repetition id should be at its animation xenith
+    // which repetition id should be at its animation zenith
     float high_center_id = mod(_InfBridgeAnimSpeed*iTime, sep) + phase; 
     // make repetitions periodic
     float mod_rep_id = mod(rep_id, sep);
     
     // Get circular difference between two periodic ids (i.e. 19 - 0  = 1 (mod 20), not 19).
-    //  This determines how far we are from the bridge arc xenith.
+    //  This determines how far we are from the bridge arc zenith.
     //  as it turns out, this is the same as the distance between two elements of a ring 0 -> n-1: min(|i - j|, n - |i - j|).
     float diff = min(abs(mod_rep_id - high_center_id), sep - abs(mod_rep_id - high_center_id));
     
@@ -746,8 +762,11 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
 
 vec3 sky( in vec3 ro, in vec3 rd ) 
 {
-    float sunDist = length(_SunPos - ro);
-    float dist = length(_SunPos - (ro + rd * sunDist)) - _SunSize;
+    // Make sun always appear as if viewed from a certain point to deal with the fact it
+    //  is infact very close geometrically.
+    vec3 sun_pov_origin = vec3(0.0);
+    float sunDist = length(_SunPos);
+    float dist = length(_SunPos - (sun_pov_origin + rd * sunDist)) - _SunSize;
     dist = dist < 0.0 ? 0.0 : dist;
     
     float ry = _HorizonOffset + rd.y;
