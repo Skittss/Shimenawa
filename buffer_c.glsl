@@ -3,12 +3,13 @@
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 180.0
+#define DEBUG_CAMERA_DIST 1.0
 #define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 //#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
-// Fast bridges & pillars do not correct discontinuous domain rep SDF and will cause artifacts, but are considerably faster
+// Fast animated bridges (& pillars) do not correct discontinuous domain rep SDF and will cause artifacts, but are considerably faster.
 #define SLOWER_BRIDGES 0
+// Fast pillars are not reccommended (very broken).
 #define SLOWER_PILLARS 1
 
 #define ZERO (min(iFrame,0))
@@ -16,42 +17,42 @@
 // Bridge Params
 const float _BelowCloudBottom = 5.0;
 
-const float strut_interval = 3.50;
-const float n_repetitions = 3.0;
-const float strut_offset = 0.8;
-const float strut_thickness = 0.2;
-const float strut_roundness = 0.01;
+const float _BridgeStrutInterval = 3.50;
+const float _BridgeNRep = 3.0;
+const float _BridgeStrutOffset = 0.8;
+const float _BridgeStrutThickness = 0.2;
+const float _BridgeStrutRoundness = 0.01;
 
-const float bridge_top_width = 0.35;
-const float bridge_top_thickness = 0.25;
-const float bridge_top_bevel_extrusion = 0.03;
-const float bridge_top_bevel_thickness = 0.05;
-const float bridge_top_roundness = 0.005;
+const float _BridgeTopWidth = 0.35;
+const float _BridgeTopThickness = 0.25;
+const float _BridgeTopBevelExtrusion = 0.03;
+const float _BridgeTopBevelThickness = 0.05;
+const float _BridgeTopRoundness = 0.005;
 
-const float wedge_height = 0.3;
-const float wedge_top_width = 2.2 * strut_thickness;
-const float wedge_bevel_height = 0.05;
-const float wedge_bevel_extrusion = 0.05;
-const float wedge_bevel_2_ratio = 0.618; // height of second bevel along wedge
+const float _BridgeWedgeHeight = 0.3;
+const float _BridgeWedgeTopWidth = 2.2 * _BridgeStrutThickness;
+const float _BridgeWedgeBevelHeight = 0.05;
+const float _BridgeWedgeBevelExtrusion = 0.05;
+const float _BridgeWedgeBevel2Ratio = 0.618; // height of second bevel along wedge
 
-const float strut_box_frame_extrusion = 0.04;
-const float strut_box_frame_thickness = 0.03;
+const float _BridgeStrutBoxFrameExtrusion = 0.04;
+const float _BridgeStrutBoxFrameThickness = 0.03;
 
-const float box_frame_bevel_extrusion = 0.03;
-const float box_frame_bevel_height = 0.04;
-const float box_frame_bevel_sep = 0.4;
-const float box_frame_bevel_bottom_offset = 1.618;
+const float _BridgeBoxFrameBevelExtrusion = 0.03;
+const float _BridgeBoxFrameBevelHeight = 0.04;
+const float _BridgeBoxFrameBevelSep = 0.4;
+const float _BridgeBoxFrameBevelBottomOffset = 1.618;
 
-const float link_top_spacing = 0.4;
-const float link_thickness = 0.025;
+const float _BridgeLinkTopSpacing = 0.4;
+const float _BridgeLinkThickness = 0.025;
 
-const float mini_strut_interval = strut_interval / 4.0;
-const float mini_strut_n_rep = 13.0;
-const float mini_strut_offset = strut_offset - 0.5 * mini_strut_interval;
-const float mini_strut_height = 0.35;
-const float mini_strut_thickness = 0.075;
-const float mini_strut_y_extrusion = 0.05;
-const float mini_strut_z_extrusion = 0.07;
+const float _BridgeMiniStrutInterval = _BridgeStrutInterval / 4.0;
+const float _BridgeMiniStrutNRep = 13.0;
+const float _BridgeMiniStrutOffset = _BridgeStrutOffset - 0.5 * _BridgeMiniStrutInterval;
+const float _BridgeMiniStrutHeight = 0.35;
+const float _BridgeMiniStrutThickness = 0.075;
+const float _BridgeMiniStrut_Y_Extrusion = 0.05;
+const float _BridgeMiniStrut_Z_Extrusion = 0.07;
 
 // Infinite bridges
 const float _InfBridgeAnimSpeed = 0.3;
@@ -59,25 +60,25 @@ const float _InfBridgeLowOffset = 8.0;
 const float _InfBridgeAnimSegLen = 6.0;
 
 // Pillar Params
-const float pillar_roundness = 0.001;
-const float bevel_roundness = 0.01;
-const float bevel_extrusion = 0.1;
-const float bevel_height = 0.075;
-const float bevel_n_rep = 4.0;
+const float _PillarRoundness = 0.001;
+const float _PillarBevelRoundness = 0.01;
+const float _PillarBevelExtrusion = 0.1;
+const float _PillarBevelHeight = 0.075;
+const float _PillarBevelNRep = 4.0;
 
-const float v_bevel_extrusion = 0.05;
-const float v_bevel_thickness = 0.05;
-const float v_bevel_roundness = 0.03;
-const float v_bevel_n = 16.0; // TODO: High n looks bad at far distances due to aliasing, so LOD this.
+const float _PillarVBevelExtrusion = 0.05;
+const float _PillarVBevelThickness = 0.05;
+const float _PillarVBevelRoundness = 0.03;
+const float _PillarVBevel_N = 16.0; // TODO: High n looks bad at far distances due to aliasing, so LOD this.
 
-const float cap_height  = 0.47;
-const float cap_extrusion = 0.45;
+const float _PillarCapHeight  = 0.47;
+const float _PillarCapExtrusion = 0.45;
 
-const float pillar_seg_height = 4.3;
+const float _PillarSegHeight = 4.3;
 
-const float little_pillar_h = 1.0;
-const float little_pillar_r = 0.125;
-const float little_pillar_n = 3.0; // smaller numbers (generally odd) give better silhouettes across multiple viewing angles
+const float _LittlePillar_H = 1.0;
+const float _LittlePillar_R = 0.125;
+const float _LittlePillar_N = 3.0; // smaller numbers (generally odd) give better silhouettes across multiple viewing angles
 
 // Rope Params
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
@@ -127,6 +128,8 @@ const vec3 _NadirCol = vec3(0.35, 0.32, 0.8);
 const float _ZenithAttenuation = 1.8;
 const float _NadirAttenuation  = 1.2;
 const float _HorizonOffset = 0.0;
+
+const float _FogFrontRadius = 100.0;
 
 const vec3 _LightDir = normalize(_SunPos);
 //const vec3 _LightDir = normalize(vec3(2.0, 1.0, 2.0));
@@ -349,32 +352,42 @@ vec2 sdTree( in vec3 p, in float h, in float r )
 }
 
 //==PILLARS=======================================================================================================================================
-vec2 sdPillarSeg( in vec3 p, in float r, in float core_r )
+vec2 sdPillarSeg( 
+    in vec3 p, in float r, in float seg_h,
+    in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars )
 {
+
+    /*
+    const float _PillarSegHeight = 4.3; // seg_h
+    const float _PillarBevelNRep = 4.0; // seg_n_sep
+    const float _PillarVBevel_N = 16.0; // seg_n_bevels
+    const float _LittlePillar_N = 3.0;  // n_small_pillars
+    */
+
     // TODO: Could LOD this pillar segment.
     vec2 res = vec2(1e10);
     
-    const float pillar_height = pillar_seg_height - 0.5*cap_height;
-        
-    // TODO: Cylindrical bounding volume here.
-    float d = sdCappedCylinder(p, 2.0*(pillar_seg_height + little_pillar_h) + cap_height + bevel_height, r + cap_extrusion);
+    float pillar_height = seg_h - 0.5*_PillarCapHeight;
+    
+    // Bounding Volume (Exact Cylinder)
+    float d = sdCappedCylinder(p, 2.0*(seg_h + _LittlePillar_H) + _PillarCapHeight + _PillarBevelHeight, r + _PillarCapExtrusion);
     if (d > 1.0) return vec2(d, 1e10);
     
     // big cylinder
-    vec3 cyl_base = p + vec3(0.0, 0.5*cap_height, 0.0);
+    vec3 cyl_base = p + vec3(0.0, 0.5*_PillarCapHeight, 0.0);
     res = MIN_MAT(res, vec2(
-        sdCappedCylinder(cyl_base, pillar_height, r) - pillar_roundness,
+        sdCappedCylinder(cyl_base, pillar_height, r) - _PillarRoundness,
         MAT_PILLAR_STONE
     ));
     
     // horizontal bevels
     {
     vec3 q = cyl_base + vec3(0.0, pillar_height, 0.0);
-    float interval = 2.0*pillar_height / bevel_n_rep;
-    float rep_id = clamp(round((q.y / interval)), 0.0, bevel_n_rep);
+    float interval = 2.0*pillar_height / seg_n_sep;
+    float rep_id = clamp(round((q.y / interval)), 0.0, seg_n_sep);
     q.y -= rep_id * interval;
     res = MIN_MAT(res, vec2(
-        sdCappedCylinder(q, bevel_height, r + bevel_extrusion) - bevel_roundness,
+        sdCappedCylinder(q, _PillarBevelHeight, r + _PillarBevelExtrusion) - _PillarBevelRoundness,
         MAT_PILLAR_GOLD
     ));
     }
@@ -384,13 +397,13 @@ vec2 sdPillarSeg( in vec3 p, in float r, in float core_r )
     vec3 q = cyl_base;
     
     //   rotatational domain repetition
-    float an = TAU/v_bevel_n;
+    float an = TAU/seg_n_bevels;
     float sector = round(atan(q.z,q.x)/an);
     float angrot = an*(sector);
     q.xz *= rot(angrot);
     
     res = MIN_MAT(res, vec2(
-        sdBox(q - vec3(r, 0.0, 0.0), vec3(v_bevel_extrusion, pillar_height, v_bevel_thickness)) - v_bevel_roundness,
+        sdBox(q - vec3(r, 0.0, 0.0), vec3(_PillarVBevelExtrusion, pillar_height, _PillarVBevelThickness)) - _PillarVBevelRoundness,
         MAT_PILLAR_STONE
     ));
     }
@@ -398,16 +411,16 @@ vec2 sdPillarSeg( in vec3 p, in float r, in float core_r )
     // small radial sub-pillars
     {
     vec3 q = p;
-    q.y -= pillar_seg_height + little_pillar_h;
+    q.y -= seg_h + _LittlePillar_H;
     
     //   rotatational domain repetition
-    float an = TAU/little_pillar_n;
+    float an = TAU/n_small_pillars;
     float sector = round(atan(q.z,q.x)/an);
     float angrot = an*(sector);
     q.xz *= rot(angrot);
 
     res = MIN_MAT(res, vec2(
-        sdCappedCylinder(q - vec3(0.7*r, 0.0, 0.0), little_pillar_h, little_pillar_r),
+        sdCappedCylinder(q - vec3(0.7*r, 0.0, 0.0), _LittlePillar_H, _LittlePillar_R),
         MAT_PILLAR_STONE
     ));
     }
@@ -415,22 +428,22 @@ vec2 sdPillarSeg( in vec3 p, in float r, in float core_r )
     // Cone caps
     {
     vec3 q = p;
-    q.y -= pillar_seg_height - cap_height;
-    float interval = 2.0*little_pillar_h + cap_height;
+    q.y -= seg_h - _PillarCapHeight;
+    float interval = 2.0*_LittlePillar_H + _PillarCapHeight;
     float rep_id = clamp(round((q.y / interval)), 0.0, 1.0);
     q.y -= rep_id * interval;
     res = MIN_MAT(res, vec2(
-        sdCone(q, vec3(0.0), vec3(0.0, cap_height, 0.0), r, r + cap_extrusion) - pillar_roundness,
+        sdCone(q, vec3(0.0), vec3(0.0, _PillarCapHeight, 0.0), r, r + _PillarCapExtrusion) - _PillarRoundness,
         MAT_PILLAR_STONE
     ));
     /*
     vec3 q = p;
-    q.y -= pillar_seg_height + 2.0*little_pillar_h;
-    float qsign = sign(q.y + little_pillar_h);
-    float sep = little_pillar_h + 0.5*cap_height;
+    q.y -= seg_h + 2.0*_LittlePillar_H;
+    float qsign = sign(q.y + _LittlePillar_H);
+    float sep = _LittlePillar_H + 0.5*_PillarCapHeight;
     q.y = abs(q.y + sep) - sep;
     res = MIN_MAT(res, vec2(
-        sdCone(q, vec3(0.0), vec3(0.0, qsign * cap_height, 0.0), r, r + cap_extrusion) - roundness,
+        sdCone(q, vec3(0.0), vec3(0.0, qsign * _PillarCapHeight, 0.0), r, r + _PillarCapExtrusion) - roundness,
         MAT_BRIDGE_STONE
     ));
     */
@@ -439,22 +452,24 @@ vec2 sdPillarSeg( in vec3 p, in float r, in float core_r )
     return res;
 }
 
-vec2 sdPillar( in vec3 p, in float n_rep, in float r, in float core_r )
+vec2 sdPillar( 
+    in vec3 p, in float n_rep, in float r, in float seg_h, 
+    in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars )
 {    
-    float full_pillar_height = 2.0*(pillar_seg_height + little_pillar_h) + cap_height;
+    float full_pillar_height = 2.0*(_PillarSegHeight + _LittlePillar_H) + _PillarCapHeight;
     p.y += _BelowCloudBottom + 0.5 * full_pillar_height;
     
     // check i = n'th repetition for current rep's SDF
     float rep_id = clamp(round((p.y / full_pillar_height)), 0.0, n_rep);
     p.y -= rep_id * full_pillar_height;
 
-    vec2 res = sdPillarSeg(p, r, core_r);
+    vec2 res = sdPillarSeg(p, r, seg_h, seg_n_sep, seg_n_bevels, n_small_pillars);
     
     if (rep_id < 1.0) return res;
     
     // check i = n-1'th repetition to ensure SDF correctness.
     p.y += full_pillar_height;
-    res = MIN_MAT(res, sdPillarSeg(p, r, core_r));
+    res = MIN_MAT(res, sdPillarSeg(p, r, seg_h, seg_n_sep, seg_n_bevels, n_small_pillars));
 
     return res;
 }
@@ -468,7 +483,7 @@ vec2 sdPillars( in vec3 p )
     //    - N repetitions (further pillars can be taller)
     //    - N H and V bevels (further pillars should have fewer)
     //    
-    
+        
     // TODO: BB on wedge between cloud bottom and max pillar height.
     
     // Maximum and minimum radial extents of the domain repetition defined by 2 params (r, t)
@@ -479,7 +494,7 @@ vec2 sdPillars( in vec3 p )
     
     vec2 res = vec2(1e10);
     
-    const vec2 spacing = vec2(25.0);
+    const vec2 spacing = vec2(60.0);
     vec2 base_id = round(p.xz / spacing);
     float len_base_id = length(base_id);
     
@@ -501,17 +516,17 @@ vec2 sdPillars( in vec3 p )
     //if (len_id < 5.0 || len_id > 10.0) return vec2(1e10);    
     float height_bias = 3.0 * smoothstep(ext_min, ext_max, len_id); // generate taller pillars when further away
     
-    float height = 2.0 + height_bias;
+    float height = 1.0 + height_bias;
     //float height = 2.0 + (4.0 + 16.0 * smoothstep(ext_min, ext_max, len_id)) * hash1(id);
     //float height = 2.0 + mod(131.5*id.x + 13.8*id.y, 4.0);
 
     vec3 q = p;
-    q.y -= height - _BelowCloudBottom;
+    //q.y -= height - _BelowCloudBottom;
     q.xz = p.xz - spacing * id;
     q.xz += 0.4 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
     
 
-    res = MIN_MAT( res, sdPillar(q, height, 1.0, 1.0 ) );
+    res = MIN_MAT( res, sdPillar(q, 2.0, height, 4.3, 4.0, 16.0, 3.0 ) );
     //res = MIN_MAT(res, vec2(sdCappedCylinder(q, height, 1.0), MAT_PILLAR_STONE));
     
     }
@@ -536,14 +551,14 @@ vec2 sdBridgeStrut( in vec3 strut_base, in float h)
     // strut beam
     vec3 q = strut_base;
     res = MIN_MAT(res, vec2(
-        sdBox(q, vec3(strut_thickness, h, strut_thickness)) - strut_roundness, 
+        sdBox(q, vec3(_BridgeStrutThickness, h, _BridgeStrutThickness)) - _BridgeStrutRoundness, 
         MAT_BRIDGE_STONE
     ));
 
     // strut-bridge connector wedge
-    q = strut_base - vec3(0.0, h - wedge_height, 0.0);
+    q = strut_base - vec3(0.0, h - _BridgeWedgeHeight, 0.0);
     res = MIN_MAT(res, vec2(
-        sdPrism(q, strut_thickness, wedge_top_width, wedge_height, strut_thickness) - strut_roundness, 
+        sdPrism(q, _BridgeStrutThickness, _BridgeWedgeTopWidth, _BridgeWedgeHeight, _BridgeStrutThickness) - _BridgeStrutRoundness, 
         MAT_BRIDGE_STONE
     ));
 
@@ -552,69 +567,69 @@ vec2 sdBridgeStrut( in vec3 strut_base, in float h)
     q = strut_base - vec3(0.0, h, 0.0);
     res = MIN_MAT(res, vec2(
         sdBox(q, vec3(
-            wedge_top_width + wedge_bevel_extrusion, 
-            wedge_bevel_height, 
-            strut_thickness + wedge_bevel_extrusion)
-        ) - strut_roundness,
+            _BridgeWedgeTopWidth + _BridgeWedgeBevelExtrusion, 
+            _BridgeWedgeBevelHeight, 
+            _BridgeStrutThickness + _BridgeWedgeBevelExtrusion)
+        ) - _BridgeStrutRoundness,
         MAT_BRIDGE_BRASS
     ));
     //   second wedge
-    q.y += 2.0 * wedge_height * (1.0 - wedge_bevel_2_ratio);
+    q.y += 2.0 * _BridgeWedgeHeight * (1.0 - _BridgeWedgeBevel2Ratio);
     res = MIN_MAT(res, vec2( 
         sdBox(q, vec3(
-            mix(strut_thickness, wedge_top_width, wedge_bevel_2_ratio) + wedge_bevel_extrusion, 
-            wedge_bevel_height / 2.0, 
-            strut_thickness + wedge_bevel_extrusion)
-        ) - strut_roundness,
+            mix(_BridgeStrutThickness, _BridgeWedgeTopWidth, _BridgeWedgeBevel2Ratio) + _BridgeWedgeBevelExtrusion, 
+            _BridgeWedgeBevelHeight / 2.0, 
+            _BridgeStrutThickness + _BridgeWedgeBevelExtrusion)
+        ) - _BridgeStrutRoundness,
         MAT_BRIDGE_BRASS
     ));
 
     // box frame
-    q = strut_base; q.y += wedge_height;
-    float box_frame_height = h - wedge_height;
+    q = strut_base; q.y += _BridgeWedgeHeight;
+    float box_frame_height = h - _BridgeWedgeHeight;
     res = MIN_MAT(res, vec2(
         sdBoxFrame(q, vec3(
-            strut_thickness + strut_box_frame_extrusion, 
+            _BridgeStrutThickness + _BridgeStrutBoxFrameExtrusion, 
             box_frame_height, 
-            strut_thickness + strut_box_frame_extrusion
-        ), strut_box_frame_thickness) - strut_roundness,
+            _BridgeStrutThickness + _BridgeStrutBoxFrameExtrusion
+        ), _BridgeStrutBoxFrameThickness) - _BridgeStrutRoundness,
         MAT_BRIDGE_STONE
     ));
 
     // box frame bevels
-    float box_frame_top_offset = wedge_height - box_frame_height + box_frame_bevel_height;
+    float box_frame_top_offset = _BridgeWedgeHeight - box_frame_height + _BridgeBoxFrameBevelHeight;
     // top
     q = strut_base;
     q.y += box_frame_top_offset; // translate up along strut
-    q.y = abs(q.y + 0.5 * box_frame_bevel_sep) - 0.5 * box_frame_bevel_sep; // domain repetition (reflection in xz plane), and center about top bevel.
-    float bevel_width = strut_thickness + strut_box_frame_extrusion + box_frame_bevel_extrusion;
+    q.y = abs(q.y + 0.5 * _BridgeBoxFrameBevelSep) - 0.5 * _BridgeBoxFrameBevelSep; // domain repetition (reflection in xz plane), and center about top bevel.
+    float bevel_width = _BridgeStrutThickness + _BridgeStrutBoxFrameExtrusion + _BridgeBoxFrameBevelExtrusion;
     res = MIN_MAT(res, vec2(
         sdBox(q, vec3(
             bevel_width,
-            box_frame_bevel_height,
+            _BridgeBoxFrameBevelHeight,
             bevel_width)
-        ) - strut_roundness,
+        ) - _BridgeStrutRoundness,
         MAT_BRIDGE_BRASS
     ));
 
     // bottom
     q = strut_base;
-    q.y += box_frame_top_offset + box_frame_bevel_sep + box_frame_bevel_bottom_offset; // translate up along strut
+    q.y += box_frame_top_offset + _BridgeBoxFrameBevelSep + _BridgeBoxFrameBevelBottomOffset; // translate up along strut
     res = MIN_MAT(res, vec2(
         sdBox(q, vec3(
             bevel_width,
-            box_frame_bevel_height,
+            _BridgeBoxFrameBevelHeight,
             bevel_width)
-        ) - strut_roundness,
+        ) - _BridgeStrutRoundness,
         MAT_BRIDGE_BRASS
     ));
 
 
     // link
-    q.y -= 0.5 * box_frame_bevel_bottom_offset;
-    q.z -= strut_thickness + link_thickness;
+    q.y -= 0.5 * _BridgeBoxFrameBevelBottomOffset;
+    q.z -= _BridgeStrutThickness + _BridgeLinkThickness;
     res = MIN_MAT(res, vec2(
-        sdLink(q, 0.65*0.5*box_frame_bevel_bottom_offset, 0.10, link_thickness),
+        sdLink(q, 0.65*0.5*_BridgeBoxFrameBevelBottomOffset, 0.10, _BridgeLinkThickness),
         MAT_BRIDGE_BRASS
     ));
     
@@ -625,15 +640,15 @@ vec2 sdBridgeTop( in vec3 p, in float h, in float l )
 {
     vec2 res = vec2(1e10);
     
-    vec3 q = p - vec3(l, bridge_top_thickness, 0.0);
+    vec3 q = p - vec3(l, _BridgeTopThickness, 0.0);
     res = MIN_MAT(res, vec2(
-        sdBox(q, vec3(l, bridge_top_thickness, bridge_top_width)),
+        sdBox(q, vec3(l, _BridgeTopThickness, _BridgeTopWidth)),
         MAT_BRIDGE_STONE
     ));
     // bridge top bevels
-    q.y = abs(q.y) - bridge_top_thickness + bridge_top_bevel_thickness; // domain repetition
+    q.y = abs(q.y) - _BridgeTopThickness + _BridgeTopBevelThickness; // domain repetition
     res = MIN_MAT(res, vec2(
-        sdBox(q, vec3(l, bridge_top_bevel_thickness, bridge_top_width + bridge_top_bevel_extrusion)),
+        sdBox(q, vec3(l, _BridgeTopBevelThickness, _BridgeTopWidth + _BridgeTopBevelExtrusion)),
         MAT_BRIDGE_BRASS
     ));
     
@@ -648,17 +663,17 @@ vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
     //   block
     vec3 q = p;
     //      domain repetition (reflection in xz plane), and center about top bevel.
-    q.z = abs(q.z) - bridge_top_width + mini_strut_thickness - mini_strut_z_extrusion; 
+    q.z = abs(q.z) - _BridgeTopWidth + _BridgeMiniStrutThickness - _BridgeMiniStrut_Z_Extrusion; 
     res = MIN_MAT(res, vec2(
-        sdBox(q, vec3(mini_strut_thickness, mini_strut_height, mini_strut_thickness)),
+        sdBox(q, vec3(_BridgeMiniStrutThickness, _BridgeMiniStrutHeight, _BridgeMiniStrutThickness)),
         MAT_BRIDGE_STONE
     ));
 
     //   spike
-    q.y += mini_strut_height + mini_strut_thickness;
+    q.y += _BridgeMiniStrutHeight + _BridgeMiniStrutThickness;
     q.y = -q.y;
     res = MIN_MAT(res, vec2(
-        sdPyramid(q, mini_strut_thickness, mini_strut_thickness, mini_strut_thickness),
+        sdPyramid(q, _BridgeMiniStrutThickness, _BridgeMiniStrutThickness, _BridgeMiniStrutThickness),
         MAT_BRIDGE_BRASS
     ));
     
@@ -684,13 +699,13 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
     // TODO: If there were a way to move this to before the raymarch, to avoid doing any raymarching at all,
     //         this would be a lot faster.
     // TODO: Could create a more exact bounding box here if needed.
-    float d = sdBox(p, vec3(2.0*l, h + bridge_top_thickness + 0.3, bridge_top_width + 0.05));
+    float d = sdBox(p, vec3(2.0*l, h + _BridgeTopThickness + 0.3, _BridgeTopWidth + 0.05));
     if (d > 1.0) return vec2(d, 1e10);
     
     // Domain repetition for struts - render as many struts as we like for the price of one.
-    vec3 strut_base = p - vec3(strut_offset, 0.0, 0.0);
-    float rep_id = clamp(round((strut_base.x / strut_interval)), 0.0, n_repetitions);
-    strut_base.x -= rep_id * strut_interval;
+    vec3 strut_base = p - vec3(_BridgeStrutOffset, 0.0, 0.0);
+    float rep_id = clamp(round((strut_base.x / _BridgeStrutInterval)), 0.0, _BridgeNRep);
+    strut_base.x -= rep_id * _BridgeStrutInterval;
     
     res = MIN_MAT(res, sdBridgeStrut(strut_base, h));
     
@@ -698,9 +713,9 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
     res = MIN_MAT(res, sdBridgeTop(top_base, h, l));
 
     // Domain repetition for struts - render as many struts as we like for the price of one.
-    vec3 mini_strut_base = p - vec3(mini_strut_offset, h + mini_strut_height - mini_strut_y_extrusion, 0.0);
-    rep_id = clamp(round((mini_strut_base.x / mini_strut_interval)), 0.0, mini_strut_n_rep);
-    mini_strut_base.x -= rep_id * mini_strut_interval;
+    vec3 mini_strut_base = p - vec3(_BridgeMiniStrutOffset, h + _BridgeMiniStrutHeight - _BridgeMiniStrut_Y_Extrusion, 0.0);
+    rep_id = clamp(round((mini_strut_base.x / _BridgeMiniStrutInterval)), 0.0, _BridgeMiniStrutNRep);
+    mini_strut_base.x -= rep_id * _BridgeMiniStrutInterval;
 
     res = MIN_MAT(res, sdBridgeTopStruts(mini_strut_base, h, l));
     
@@ -991,7 +1006,7 @@ vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
     // Create an outline around objects within a certain radius around the sun.
     //    The view direction dot product can be used to determine the radius.
     //    Raymarching near misses are used to generate the outline. 
-    //   Then, a power curve is used to decay the outline based on distance from the sun.
+    //   Then, a power curve is used to decay the outline based on distance from the edge of the sun.
     float rd_dot_sun = dot(rd, normalize(_SunPos - ro));
     
     float angle_factor = 1.0 / (1.0 - _OutlineDotThreshold) * (max(0.0, rd_dot_sun - _OutlineDotThreshold));
