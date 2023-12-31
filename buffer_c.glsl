@@ -3,12 +3,13 @@
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 30.0
+#define DEBUG_CAMERA_DIST 180.0
 #define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 //#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
-// Fast bridges do not correct broken SDF and will cause artifacts, but are considerably faster
+// Fast bridges & pillars do not correct discontinuous domain rep SDF and will cause artifacts, but are considerably faster
 #define SLOWER_BRIDGES 0
+#define SLOWER_PILLARS 1
 
 #define ZERO (min(iFrame,0))
 
@@ -155,10 +156,8 @@ vec2 MIN_MAT(vec2 a, vec2 b)
 
 // util functions for AO
 // https://www.shadertoy.com/view/ld3Gz2
-float hash1(float n)
-{
-    return fract(sin(n)*43758.5453123);
-}
+float hash1(float n) { return fract(sin(n)*43758.5453123); }
+float hash1( vec2 n) { return fract(43758.5453123*sin(dot(n,vec2(1.0,113.0)))); }
 
 vec3 forwardSF(float i, float n) 
 {
@@ -472,74 +471,59 @@ vec2 sdPillars( in vec3 p )
     
     // TODO: BB on wedge between cloud bottom and max pillar height.
     
+    // Maximum and minimum radial extents of the domain repetition defined by 2 params (r, t)
+    const float ring_rad = 10.0;
+    const float ring_thickness = 8.5;
+    const float ext_min = ring_rad - ring_thickness;
+    const float ext_max = ring_rad + ring_thickness;
+    
     vec2 res = vec2(1e10);
     
     const vec2 spacing = vec2(25.0);
+    vec2 base_id = round(p.xz / spacing);
+    float len_base_id = length(base_id);
     
-    /*
-    vec2 id = round(p.xz / spacing);
+    // Early exit on maximum extent for opt (no more pillars beyond this point so raymarch accuracy not affected)
+    if (len_base_id > ext_max) return vec2(1e10);
     
+    #if SLOWER_PILLARS
+    for (int i=-1; i<2; i++)
+    for (int j=-1; j<2; j++)
+    {
+    #else
+    {
+    int i = 0; int j = 0;
+    #endif 
+    
+    vec2 id = base_id + vec2(i, j);
     float len_id = length(id);
     
-    if (len_id < 5.0 || len_id > 10.0) return vec2(1e10);
+    //if (len_id < 5.0 || len_id > 10.0) return vec2(1e10);    
+    float height_bias = 3.0 * smoothstep(ext_min, ext_max, len_id); // generate taller pillars when further away
     
+    float height = 2.0 + height_bias;
+    //float height = 2.0 + (4.0 + 16.0 * smoothstep(ext_min, ext_max, len_id)) * hash1(id);
+    //float height = 2.0 + mod(131.5*id.x + 13.8*id.y, 4.0);
+
     vec3 q = p;
+    q.y -= height - _BelowCloudBottom;
     q.xz = p.xz - spacing * id;
     q.xz += 0.4 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
-    */
     
-    vec2 base_id = floor((p.xz+spacing)/(2.0*spacing));
 
-    // TODO: Long compile time largely due to wrapping a complex SDF in this loop (to ensure domain rep correctness)...
-    //    Suggestions for tricks to decrease the compile time here would be appreciated ^^
-    for (int i=0; i<2; i++)
-    for (int j=0; j<2; j++)
-    {
+    res = MIN_MAT( res, sdPillar(q, height, 1.0, 1.0 ) );
+    //res = MIN_MAT(res, vec2(sdCappedCylinder(q, height, 1.0), MAT_PILLAR_STONE));
     
-    // TODO: Need to check the three in front... so need to use camera pos here?
-    vec2 id = base_id + vec2(i, j) * sign(p.xz - spacing*base_id);
-
-    float scale_ease_in_r  = 7.0;
-    float scale_ease_out_r = 15.0;
-    float scale = (1.0 + 3.0 * smoothstep(scale_ease_in_r, scale_ease_out_r, length(id))) * (1.0 + mod(63.1*id.x + 33.2*id.y, 2.0));
-    scale = 0.05;
-        
-    float height = 2.0 + mod(131.5*id.x + 13.8*id.y, 4.0);
-    
-    vec3 vp = vec3( mod(p.x+spacing.x, 2.0*spacing.x)-spacing.x, p.y, 
-                    mod(p.z+spacing.y, 2.0*spacing.y)-spacing.y);
-                    
-    vec2 dis = 8.0 * cos(vec2(131.5*id.x + 40.6*id.y, 38.9*id.x + 93.2*id.y));
-    //vp.xz += dis;
-    
-    
-    //res = MIN_MAT( res, sdPillar(vp - vec3(dis.x, 0.0, dis.y), 2.0, 1.0, 1.0 ) );
-    res = MIN_MAT(res, vec2(sdCappedCylinder(vp - vec3(dis.x, height - _BelowCloudBottom, dis.y), height, 1.0), MAT_PILLAR_STONE));
-
-    //res = MIN_MAT(res, vec2(sdCappedCylinder(vp - vec3(dis.x, scale*height, dis.y), scale*height, scale), MAT_PILLAR_STONE));
-    //res = MIN_MAT(res, vec2(sdSphere(vp - vec3(dis.x, 0.0, dis.y), 1.0), MAT_PILLAR_STONE));
     }
     
-    return res;
+    res.x = max(res.x, abs(len_base_id - ring_rad) - ring_thickness);
     
-    //return sdPillar(q, 2.0, 1.0, 1.0);
+    return res;
     
     /*
-    // Example from IQ Happy jumping
-    float fs = 5.0;
-    vec3 qos = fs*p;
-    vec2 id = vec2( floor(qos.x+0.5), floor(qos.z+0.5) );
-    vec3 vp = vec3( fract(qos.x+0.5)-0.5,qos.y,fract(qos.z+0.5)-0.5);
-    vp.xz += 0.1*cos( id.x*130.143 + id.y*120.372 + vec2(0.0,2.0) );
-    float den = sin(id.x*0.1+sin(id.y*0.091))+sin(id.y*0.1);
-    float fid = id.x*0.143 + id.y*0.372;
-    float ra = smoothstep(0.0,0.1,den*0.1+fract(fid)-0.95);
-    float d = sdCappedCylinder( vp, 1.0, 0.35*ra )/fs;
-    if( d<res.x ) res = vec2(d, MAT_PILLAR_STONE);
-    
-    return res;
+    vec2 dis = 10.0 * cos(vec2(131.5*id.x + 40.6*id.y, 38.9*id.x + 93.2*id.y));
     */
-    
+        
     // Smaller pillars closer to origin, some really large ones in the distance.
     //return sdPillar(p + vec3(0.0, 0.0, 0.0), 3.0, 1.0, 1.0);
 }
