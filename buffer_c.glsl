@@ -3,7 +3,7 @@
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 15.0
+#define DEBUG_CAMERA_DIST 30.0
 #define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 //#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
@@ -470,20 +470,75 @@ vec2 sdPillars( in vec3 p )
     //    - N H and V bevels (further pillars should have fewer)
     //    
     
-    const vec2 spacing = vec2(50.0);
+    // TODO: BB on wedge between cloud bottom and max pillar height.
     
+    vec2 res = vec2(1e10);
+    
+    const vec2 spacing = vec2(25.0);
+    
+    /*
     vec2 id = round(p.xz / spacing);
     
     float len_id = length(id);
     
-    //if (len_id < 5.0 || len_id > 10.0) return vec2(1e10);
+    if (len_id < 5.0 || len_id > 10.0) return vec2(1e10);
     
     vec3 q = p;
     q.xz = p.xz - spacing * id;
-    //float height = mod(131.5*id.x + 13.8*id.y, 4.0);
-    //q.xz += vec2(0.1, 0.2) + 1.0 * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
+    q.xz += 0.4 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
+    */
     
-    return sdPillar(q, 2.0, 1.0, 1.0);
+    vec2 base_id = floor((p.xz+spacing)/(2.0*spacing));
+
+    // TODO: Long compile time largely due to wrapping a complex SDF in this loop (to ensure domain rep correctness)...
+    //    Suggestions for tricks to decrease the compile time here would be appreciated ^^
+    for (int i=0; i<2; i++)
+    for (int j=0; j<2; j++)
+    {
+    
+    // TODO: Need to check the three in front... so need to use camera pos here?
+    vec2 id = base_id + vec2(i, j) * sign(p.xz - spacing*base_id);
+
+    float scale_ease_in_r  = 7.0;
+    float scale_ease_out_r = 15.0;
+    float scale = (1.0 + 3.0 * smoothstep(scale_ease_in_r, scale_ease_out_r, length(id))) * (1.0 + mod(63.1*id.x + 33.2*id.y, 2.0));
+    scale = 0.05;
+        
+    float height = 2.0 + mod(131.5*id.x + 13.8*id.y, 4.0);
+    
+    vec3 vp = vec3( mod(p.x+spacing.x, 2.0*spacing.x)-spacing.x, p.y, 
+                    mod(p.z+spacing.y, 2.0*spacing.y)-spacing.y);
+                    
+    vec2 dis = 8.0 * cos(vec2(131.5*id.x + 40.6*id.y, 38.9*id.x + 93.2*id.y));
+    //vp.xz += dis;
+    
+    
+    //res = MIN_MAT( res, sdPillar(vp - vec3(dis.x, 0.0, dis.y), 2.0, 1.0, 1.0 ) );
+    res = MIN_MAT(res, vec2(sdCappedCylinder(vp - vec3(dis.x, height - _BelowCloudBottom, dis.y), height, 1.0), MAT_PILLAR_STONE));
+
+    //res = MIN_MAT(res, vec2(sdCappedCylinder(vp - vec3(dis.x, scale*height, dis.y), scale*height, scale), MAT_PILLAR_STONE));
+    //res = MIN_MAT(res, vec2(sdSphere(vp - vec3(dis.x, 0.0, dis.y), 1.0), MAT_PILLAR_STONE));
+    }
+    
+    return res;
+    
+    //return sdPillar(q, 2.0, 1.0, 1.0);
+    
+    /*
+    // Example from IQ Happy jumping
+    float fs = 5.0;
+    vec3 qos = fs*p;
+    vec2 id = vec2( floor(qos.x+0.5), floor(qos.z+0.5) );
+    vec3 vp = vec3( fract(qos.x+0.5)-0.5,qos.y,fract(qos.z+0.5)-0.5);
+    vp.xz += 0.1*cos( id.x*130.143 + id.y*120.372 + vec2(0.0,2.0) );
+    float den = sin(id.x*0.1+sin(id.y*0.091))+sin(id.y*0.1);
+    float fid = id.x*0.143 + id.y*0.372;
+    float ra = smoothstep(0.0,0.1,den*0.1+fract(fid)-0.95);
+    float d = sdCappedCylinder( vp, 1.0, 0.35*ra )/fs;
+    if( d<res.x ) res = vec2(d, MAT_PILLAR_STONE);
+    
+    return res;
+    */
     
     // Smaller pillars closer to origin, some really large ones in the distance.
     //return sdPillar(p + vec3(0.0, 0.0, 0.0), 3.0, 1.0, 1.0);
@@ -670,6 +725,8 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
 
 vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h )
 {
+    // TODO: BB on wedge between cloud bottom and bridge height (top).
+
     // Map bridge to line in XZ plane with line origin (o) and direction in XZ defined by angle from x basis vector (an).
     // Translate to point on bridge line
     p -= o;
