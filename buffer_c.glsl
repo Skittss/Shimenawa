@@ -3,11 +3,16 @@
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 1.0
+#define DEBUG_CAMERA_DIST 60.0
 #define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 //#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
+// These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
+//   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
+//   TODO: Look into ways to fix (or alternative approaches).
+
 // Fast animated bridges (& pillars) do not correct discontinuous domain rep SDF and will cause artifacts, but are considerably faster.
+//  TODO: I'm fairly confident this can be worked around by just doing 3 SDF evaluations. I end up doing 3 anyway to ensure correctness???
 #define SLOWER_BRIDGES 0
 // Fast pillars are not reccommended (very broken).
 #define SLOWER_PILLARS 1
@@ -55,6 +60,8 @@ const float _BridgeMiniStrut_Y_Extrusion = 0.05;
 const float _BridgeMiniStrut_Z_Extrusion = 0.07;
 
 // Infinite bridges
+const float _BelowCloudBottomPillar = 10.0;
+
 const float _InfBridgeAnimSpeed = 0.3;
 const float _InfBridgeLowOffset = 8.0;
 const float _InfBridgeAnimSegLen = 6.0;
@@ -356,7 +363,20 @@ vec2 sdPillarSeg(
     in vec3 p, in float r, in float seg_h,
     in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars )
 {
-
+    // Radial scale - 1.0 is base scale, can be changed.
+    //   Want to keep nice ratio between main pillar radius and the size of objects which comprise the gap,
+    //   so scale these objects by a factor in comparison to a base radius which has a aesthetically pleasing ratio.
+    float rs = r / 1.0; 
+    
+    // I am so sorry if you happen to unfortunately read this
+    float rs_PillarCapHeight = rs*_PillarCapHeight;
+    float rs_PillarCapExtrusion = rs*_PillarCapExtrusion;
+    float rs_LittlePillar_H = rs*_LittlePillar_H;
+    float rs_LittlePillar_R = rs*_LittlePillar_R;
+    float rs_PillarBevelExtrusion = rs*_PillarBevelExtrusion;
+    float rs_PillarVBevelExtrusion = rs*_PillarVBevelExtrusion;
+    float rs_PillarVBevelThickness = rs*_PillarVBevelThickness;
+    
     /*
     const float _PillarSegHeight = 4.3; // seg_h
     const float _PillarBevelNRep = 4.0; // seg_n_sep
@@ -367,14 +387,14 @@ vec2 sdPillarSeg(
     // TODO: Could LOD this pillar segment.
     vec2 res = vec2(1e10);
     
-    float pillar_height = seg_h - 0.5*_PillarCapHeight;
+    float pillar_height = seg_h - 0.5*rs_PillarCapHeight;
     
     // Bounding Volume (Exact Cylinder)
-    float d = sdCappedCylinder(p, 2.0*(seg_h + _LittlePillar_H) + _PillarCapHeight + _PillarBevelHeight, r + _PillarCapExtrusion);
+    float d = sdCappedCylinder(p, 2.0*(seg_h + rs_LittlePillar_H) + rs_PillarCapHeight + _PillarBevelHeight, r + rs_PillarCapExtrusion);
     if (d > 1.0) return vec2(d, 1e10);
     
     // big cylinder
-    vec3 cyl_base = p + vec3(0.0, 0.5*_PillarCapHeight, 0.0);
+    vec3 cyl_base = p + vec3(0.0, 0.5*rs_PillarCapHeight, 0.0);
     res = MIN_MAT(res, vec2(
         sdCappedCylinder(cyl_base, pillar_height, r) - _PillarRoundness,
         MAT_PILLAR_STONE
@@ -387,7 +407,7 @@ vec2 sdPillarSeg(
     float rep_id = clamp(round((q.y / interval)), 0.0, seg_n_sep);
     q.y -= rep_id * interval;
     res = MIN_MAT(res, vec2(
-        sdCappedCylinder(q, _PillarBevelHeight, r + _PillarBevelExtrusion) - _PillarBevelRoundness,
+        sdCappedCylinder(q, _PillarBevelHeight, r + rs_PillarBevelExtrusion) - _PillarBevelRoundness,
         MAT_PILLAR_GOLD
     ));
     }
@@ -403,7 +423,7 @@ vec2 sdPillarSeg(
     q.xz *= rot(angrot);
     
     res = MIN_MAT(res, vec2(
-        sdBox(q - vec3(r, 0.0, 0.0), vec3(_PillarVBevelExtrusion, pillar_height, _PillarVBevelThickness)) - _PillarVBevelRoundness,
+        sdBox(q - vec3(r, 0.0, 0.0), vec3(rs_PillarVBevelExtrusion, pillar_height, rs_PillarVBevelThickness)) - _PillarVBevelRoundness,
         MAT_PILLAR_STONE
     ));
     }
@@ -411,7 +431,7 @@ vec2 sdPillarSeg(
     // small radial sub-pillars
     {
     vec3 q = p;
-    q.y -= seg_h + _LittlePillar_H;
+    q.y -= seg_h + rs_LittlePillar_H;
     
     //   rotatational domain repetition
     float an = TAU/n_small_pillars;
@@ -420,7 +440,7 @@ vec2 sdPillarSeg(
     q.xz *= rot(angrot);
 
     res = MIN_MAT(res, vec2(
-        sdCappedCylinder(q - vec3(0.7*r, 0.0, 0.0), _LittlePillar_H, _LittlePillar_R),
+        sdCappedCylinder(q - vec3(0.7*r, 0.0, 0.0), rs_LittlePillar_H, rs_LittlePillar_R),
         MAT_PILLAR_STONE
     ));
     }
@@ -428,25 +448,14 @@ vec2 sdPillarSeg(
     // Cone caps
     {
     vec3 q = p;
-    q.y -= seg_h - _PillarCapHeight;
-    float interval = 2.0*_LittlePillar_H + _PillarCapHeight;
+    q.y -= seg_h - rs_PillarCapHeight;
+    float interval = 2.0*rs_LittlePillar_H + rs_PillarCapHeight;
     float rep_id = clamp(round((q.y / interval)), 0.0, 1.0);
     q.y -= rep_id * interval;
     res = MIN_MAT(res, vec2(
-        sdCone(q, vec3(0.0), vec3(0.0, _PillarCapHeight, 0.0), r, r + _PillarCapExtrusion) - _PillarRoundness,
+        sdCone(q, vec3(0.0), vec3(0.0, rs_PillarCapHeight, 0.0), r, r + rs_PillarCapExtrusion) - _PillarRoundness,
         MAT_PILLAR_STONE
     ));
-    /*
-    vec3 q = p;
-    q.y -= seg_h + 2.0*_LittlePillar_H;
-    float qsign = sign(q.y + _LittlePillar_H);
-    float sep = _LittlePillar_H + 0.5*_PillarCapHeight;
-    q.y = abs(q.y + sep) - sep;
-    res = MIN_MAT(res, vec2(
-        sdCone(q, vec3(0.0), vec3(0.0, qsign * _PillarCapHeight, 0.0), r, r + _PillarCapExtrusion) - roundness,
-        MAT_BRIDGE_STONE
-    ));
-    */
     }
         
     return res;
@@ -456,8 +465,9 @@ vec2 sdPillar(
     in vec3 p, in float n_rep, in float r, in float seg_h, 
     in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars )
 {    
-    float full_pillar_height = 2.0*(_PillarSegHeight + _LittlePillar_H) + _PillarCapHeight;
-    p.y += _BelowCloudBottom + 0.5 * full_pillar_height;
+    float rs = r / 1.0; 
+    float full_pillar_height = 2.0*(seg_h + rs*_LittlePillar_H) + rs*_PillarCapHeight;
+    p.y += _BelowCloudBottomPillar - 0.5 * full_pillar_height;
     
     // check i = n'th repetition for current rep's SDF
     float rep_id = clamp(round((p.y / full_pillar_height)), 0.0, n_rep);
@@ -486,15 +496,20 @@ vec2 sdPillars( in vec3 p )
         
     // TODO: BB on wedge between cloud bottom and max pillar height.
     
+    const vec2 spacing = vec2(165.0);
+    const float len_spacing = length(spacing);
+
     // Maximum and minimum radial extents of the domain repetition defined by 2 params (r, t)
-    const float ring_rad = 10.0;
-    const float ring_thickness = 8.5;
+    //  TODO: I would like this to be independent of spacing, but it messes with the SDF so i cba to deal with the consequences of that
+    const float ring_rad = 2.5;
+    const float ring_thickness = 3.0;
     const float ext_min = ring_rad - ring_thickness;
     const float ext_max = ring_rad + ring_thickness;
     
     vec2 res = vec2(1e10);
     
-    const vec2 spacing = vec2(60.0);
+    //return sdPillar(p, 0.0, 3.0, 4.3, 4.0, 16.0, 3.0 );
+        
     vec2 base_id = round(p.xz / spacing);
     float len_base_id = length(base_id);
     
@@ -513,21 +528,27 @@ vec2 sdPillars( in vec3 p )
     vec2 id = base_id + vec2(i, j);
     float len_id = length(id);
     
-    //if (len_id < 5.0 || len_id > 10.0) return vec2(1e10);    
-    float height_bias = 3.0 * smoothstep(ext_min, ext_max, len_id); // generate taller pillars when further away
+    // Near and far heights - for a dynamic scene, make further away pillars *considerably* larger.
+    float far = step(ring_rad, len_id);
+    float height_deviation = (far == 1.0) ? 10.0 : 6.0;
+    float height_min = (far == 1.0) ? 2.0: 1.0;
+    float height_bias = smoothstep(ext_min, ext_max, len_id) * hash1(id); // generate taller pillars when further away
     
-    float height = 1.0 + height_bias;
+    float height = height_min + height_deviation * height_bias;
+    //float height = (far == 1.0) ? 6.0 : 1.0;
     //float height = 2.0 + (4.0 + 16.0 * smoothstep(ext_min, ext_max, len_id)) * hash1(id);
     //float height = 2.0 + mod(131.5*id.x + 13.8*id.y, 4.0);
 
     vec3 q = p;
     //q.y -= height - _BelowCloudBottom;
     q.xz = p.xz - spacing * id;
-    q.xz += 0.4 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
+    q.xz += 0.53 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
     
 
-    res = MIN_MAT( res, sdPillar(q, 2.0, height, 4.3, 4.0, 16.0, 3.0 ) );
-    //res = MIN_MAT(res, vec2(sdCappedCylinder(q, height, 1.0), MAT_PILLAR_STONE));
+    //res = MIN_MAT( res, sdPillar(q, 2.0, height, 4.3, 4.0, 16.0, 3.0 ) );
+    res = MIN_MAT( res, sdPillar(q, 2.0, height, 3.0*height, 4.0, 16.0, 3.0 ) );
+    //height *= 4.3;
+    //res = MIN_MAT(res, vec2(sdCappedCylinder(q+vec3(0.0, _BelowCloudBottomPillar - height, 0.0), height, height / 4.3), MAT_PILLAR_STONE));
     
     }
     
@@ -743,7 +764,7 @@ vec2 sdInfiniteBridgeAnimated(
     in vec3 p, in vec3 o, in float an, in float h,
     const float sep, const float phase, const float n_seg, const float min_bound, const float max_bound
 ) {
-    // TODO: There is a lot of wasted work here... especially on bridge segments that are not visible.
+    // TODO: I'm 99% sure it will be faster (for compilation, mostly) to just do 3 SDF calls: domain rep segment, falling, and rising sections.
     vec2 res = vec2(1e10);
     
     // Potentially 3x the work.. but the SDF is correct.
@@ -895,13 +916,13 @@ vec2 map( in vec3 p )
     #endif
 
     // Static Inf Bridges
-    #if 1
+    #if 0
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5));
     #endif
     
     // Animated Inf Bridges
-    #if 1
+    #if 0
     {
     res = MIN_MAT(res, sdInfiniteBridgeAnimated(
         p, vec3(60.0, 0.0, 60.0), PI / 2.0, 2.5,
