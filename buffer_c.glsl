@@ -1,11 +1,44 @@
+/*                                  
+
+                                                 ████                                               
+                   ██                            █████                              █████████       
+       █████      ██████             ███         ████████              ████   ██  █████   █████     
+      ███████     ███████           ██████  ██████████                 █████  ██  ████████████      
+        █████    ███████             █████    █ ██████████            ██████████  ███████████       
+                ██  █████            █████   ██ █████  █████         █████    ███ ██████████        
+              ███   ████████               █  ██ ███████████        ████████  ███████████           
+     █████  ████████████████        ██████ ██  █████████████       ██████████    ██████ █████       
+   █████████████████████          ████████ ████ ██████████            ██████    ███████ ██████      
+    ████████   ██ ███████          █████     ███████  ████           ███████ █████████ ██████       
+      █  ██     ██████████            ████    █  ████████████         ██████████ ██████████         
+     █  ██   ███████████               ██████████████████████          ███ ███████████   ██         
+     █ ███  ███   ████             ███████████   ███  █               █ ███ █   ██████     ██       
+    █ ███       ███████ █████      ████████      ███  █              █  ███      █████      ███     
+    ████   ████████████████████      ██ ████████ ██        ██         ████      ████████████████    
+    ███  ████████          ████               █████████████████         ████           █████████    
+                                                                                                    
+
+    注連縄 (Shimenawa) by Henry A. 
+    
+      This shader has served as my learning playground for raymarching.
+      It is by no means perfect, but I hope you enjoy it as much as I enjoyed the process of making it.
+        
+      このシェーダーを作ることでレイマーチングの基本を学びました。
+      決して完璧じゃありませんが、楽しんでください。
+    
+    Also, apologies for the long compile time! I tried to make it as quick as possible.
+    長いコンパイル時間にすみません。なるべく短くしようとしました。
+    
+*/
+
 #define PHI 1.61803399
 #define PI  3.14159265
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 60.0
-#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
-//#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
+#define DEBUG_CAMERA_DIST 1.0
+//#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
+#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
 //   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
@@ -168,6 +201,7 @@ vec2 MIN_MAT(vec2 a, vec2 b)
 // https://www.shadertoy.com/view/ld3Gz2
 float hash1(float n) { return fract(sin(n)*43758.5453123); }
 float hash1( vec2 n) { return fract(43758.5453123*sin(dot(n,vec2(1.0,113.0)))); }
+float hash2( vec2 n) { return fract(74193.9957812*sin(dot(n,vec2(99.0,33.0)))); }
 
 vec3 forwardSF(float i, float n) 
 {
@@ -377,13 +411,6 @@ vec2 sdPillarSeg(
     float rs_PillarVBevelExtrusion = rs*_PillarVBevelExtrusion;
     float rs_PillarVBevelThickness = rs*_PillarVBevelThickness;
     
-    /*
-    const float _PillarSegHeight = 4.3; // seg_h
-    const float _PillarBevelNRep = 4.0; // seg_n_sep
-    const float _PillarVBevel_N = 16.0; // seg_n_bevels
-    const float _LittlePillar_N = 3.0;  // n_small_pillars
-    */
-
     // TODO: Could LOD this pillar segment.
     vec2 res = vec2(1e10);
     
@@ -496,13 +523,13 @@ vec2 sdPillars( in vec3 p )
         
     // TODO: BB on wedge between cloud bottom and max pillar height.
     
-    const vec2 spacing = vec2(165.0);
+    const vec2 spacing = vec2(145.0);
     const float len_spacing = length(spacing);
 
     // Maximum and minimum radial extents of the domain repetition defined by 2 params (r, t)
-    //  TODO: I would like this to be independent of spacing, but it messes with the SDF so i cba to deal with the consequences of that
+    //  TODO: I would like this to be independent of spacing, but it messes with the SDF so i cba
     const float ring_rad = 2.5;
-    const float ring_thickness = 3.0;
+    const float ring_thickness = 6.0;
     const float ext_min = ring_rad - ring_thickness;
     const float ext_max = ring_rad + ring_thickness;
     
@@ -527,27 +554,31 @@ vec2 sdPillars( in vec3 p )
     
     vec2 id = base_id + vec2(i, j);
     float len_id = length(id);
+    float id_hash1 = hash1(id);
+    float id_hash2 = hash2(id);
     
     // Near and far heights - for a dynamic scene, make further away pillars *considerably* larger.
     float far = step(ring_rad, len_id);
-    float height_deviation = (far == 1.0) ? 10.0 : 6.0;
-    float height_min = (far == 1.0) ? 2.0: 1.0;
-    float height_bias = smoothstep(ext_min, ext_max, len_id) * hash1(id); // generate taller pillars when further away
     
-    float height = height_min + height_deviation * height_bias;
-    //float height = (far == 1.0) ? 6.0 : 1.0;
-    //float height = 2.0 + (4.0 + 16.0 * smoothstep(ext_min, ext_max, len_id)) * hash1(id);
-    //float height = 2.0 + mod(131.5*id.x + 13.8*id.y, 4.0);
+    float height_dev = (far == 1.0) ? 5.0 : 2.0;
+    float height_avg = (far == 1.0) ? 8.0: 4.0;
+    float height_bias = 2.0 * (smoothstep(ext_min, ext_max, len_id) * id_hash1) - 1.0; // generate taller pillars when further away
+    float height = height_avg + height_dev * height_bias;
 
-    vec3 q = p;
-    //q.y -= height - _BelowCloudBottom;
-    q.xz = p.xz - spacing * id;
-    q.xz += 0.53 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
+    float nseg = 1.0 + floor(2.0*id_hash2);
     
+    float quick_hash3 = fract(id_hash1 * id_hash2);
+    float n_pillar = 2.0 + 2.0*floor(2.0 * quick_hash3) + 1.0; // 3 or 5 pillars for better silhouette (even is bad)
+    float h_offset = len_id * 2.0 * quick_hash3;
+    
+    vec3 q = p;
+    q.xz = p.xz - spacing * id;
+    q.xz *= rot(id_hash1 * 2.0 * PI);
+    q.xz += 0.53 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
+    q.y += h_offset;
 
     //res = MIN_MAT( res, sdPillar(q, 2.0, height, 4.3, 4.0, 16.0, 3.0 ) );
-    res = MIN_MAT( res, sdPillar(q, 2.0, height, 3.0*height, 4.0, 16.0, 3.0 ) );
-    //height *= 4.3;
+    res = MIN_MAT( res, sdPillar(q, nseg, 0.8*height, 3.0*height, 4.0, 16.0, n_pillar ) );
     //res = MIN_MAT(res, vec2(sdCappedCylinder(q+vec3(0.0, _BelowCloudBottomPillar - height, 0.0), height, height / 4.3), MAT_PILLAR_STONE));
     
     }
@@ -555,11 +586,7 @@ vec2 sdPillars( in vec3 p )
     res.x = max(res.x, abs(len_base_id - ring_rad) - ring_thickness);
     
     return res;
-    
-    /*
-    vec2 dis = 10.0 * cos(vec2(131.5*id.x + 40.6*id.y, 38.9*id.x + 93.2*id.y));
-    */
-        
+
     // Smaller pillars closer to origin, some really large ones in the distance.
     //return sdPillar(p + vec3(0.0, 0.0, 0.0), 3.0, 1.0, 1.0);
 }
@@ -900,7 +927,7 @@ vec2 map( in vec3 p )
     #endif
     
     // Rope
-    #if 0
+    #if 1
     float r_id;
     res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
     #endif
@@ -916,7 +943,7 @@ vec2 map( in vec3 p )
     #endif
 
     // Static Inf Bridges
-    #if 0
+    #if 1
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5));
     #endif
