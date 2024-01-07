@@ -51,11 +51,11 @@ vec3 bloom_mipmap(float mipmap_exp, vec2 offset, vec2 uv)
 
 vec3 get_bloom(vec2 uv)
 { 
-    vec3 blur = bloom_mipmap(1.0, vec2(0.0), uv);
-        blur += bloom_mipmap(2.0, vec2(0.0), uv);
-        blur += bloom_mipmap(3.0, vec2(0.0), uv);
-        blur += bloom_mipmap(4.0, vec2(0.0), uv);
-        blur += bloom_mipmap(5.0, vec2(0.0), uv);
+    vec3 blur  = bloom_mipmap(1.0, vec2(0.0), uv);
+         blur += bloom_mipmap(2.0, vec2(0.0), uv);
+         blur += bloom_mipmap(3.0, vec2(0.0), uv);
+         blur += bloom_mipmap(4.0, vec2(0.0), uv);
+         blur += bloom_mipmap(5.0, vec2(0.0), uv);
     
     return blur * colorRange;
 }

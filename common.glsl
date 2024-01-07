@@ -1,4 +1,4 @@
-// Shadertoy does not support the use of arbitrary float buffers, so we have to store HDR values in the range [0, 1].
+// Shadertoy does not have arbitrary float buffers, so we have to store HDR values in the range [0, 1].
 //  Hacky solution, but we can divide through by a max HDR value before to compensate with HDR calculations.
 #define HDR_MAX_COL 25.0
 
@@ -13,7 +13,7 @@
 #define BLOOM_INTENSITY 2.0
 #define BLOOM_THRESHOLD 1.3
 
-// LDR
+// LDR (post-HDR effects)
 #define GAMMA 2.2
 #define BRIGHTNESS 0.0
 #define CONTRAST 1.15
@@ -31,7 +31,10 @@
 
 // Increasing max steps can help render objects at oblique angles
 #define RAYMARCH_MAX_STEPS 128
+
+// Width of SSAA square (e.g. AA = 2 corresponds to 4x SSAA)
 #define AA 1
+
 #define AO_SAMPLES 64.0
 
 // MESS WITH THESE AT YOUR OWN PERIL
@@ -48,6 +51,17 @@ float smin( float a, float b, float k )
 }
 
 mat2 rot(in float a) { float c = cos(a); float s = sin(a); return mat2(c, s, -s, c); }
+
+// https://www.shadertoy.com/view/3sffzj
+// For Perlin-Worley noise
+float saturate(float x){
+	return clamp(x, 0.0, 1.0);
+}
+
+float remap(float x, float low1, float high1, float low2, float high2){
+	return low2 + (x - low1) * (high2 - low2) / (high1 - low1);
+}
+
 
 //========================================================
 // SDFs
@@ -193,7 +207,7 @@ vec2 iSphere( in vec3 ro, in vec3 rd, in float rad )
 	float b = dot( ro, rd );
 	float c = dot( ro, ro ) - rad*rad;
 	float h = b*b - c;
-	if( h<0.0 ) return vec2(-1.0);
+	if( h<0.0 ) return vec2(-1.0); // no intersection
     h = sqrt(h);
-	return vec2(-b-h, -b+h );
+	return vec2( -b-h, -b+h );
 }
