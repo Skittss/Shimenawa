@@ -22,7 +22,7 @@
     
     --LAYOUT------------------------------------------------------------------------------------
     
-      COMMON: Colour schemes, Rendering settings, SDF primitives, intersectors, and util funcs.
+      COMMON: Colour schemes, Rendering settings, SDF primitives, Intersectors, and util funcs.
        
     BUFFER B: Perlin-Worley texture atlas generation for clouds. 
               (Source: https://www.shadertoy.com/view/3sffzj)
@@ -86,7 +86,12 @@
 // Cloud settings
 #define CAMERA_RAY_STEPS 32
 #define  LIGHT_RAY_STEPS 10
+
+// Dithering (removes artifacts from discrete ray sampling as a result of large-ish step size)
 #define CLOUD_BLUE_NOISE
+
+// Shadow casting on the clouds is extremely slow. 
+//#define CLOUD_SHADOW_CAST
 
 //========================================================
 // MESS WITH THESE AT YOUR OWN PERIL

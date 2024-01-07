@@ -22,7 +22,7 @@
     
     --LAYOUT------------------------------------------------------------------------------------
     
-      COMMON: Colour schemes, Rendering settings, SDF primitives, intersectors, and util funcs.
+      COMMON: Colour schemes, Rendering settings, SDF primitives, Intersectors, and util funcs.
        
     BUFFER B: Perlin-Worley texture atlas generation for clouds. 
               (Source: https://www.shadertoy.com/view/3sffzj)
@@ -50,13 +50,17 @@
 #define PI  3.14159265
 #define TAU 6.28318533
 
-#define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 1.0
-#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
-//#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
+// Debug (Orbital Mouse Controls) camera settings
+#define USE_DEBUG_CAMERA 0
+#define DEBUG_CAMERA_DIST 1.6
 
-//#define RENDER_ROPE
-//#define RENDER_PILLARS
+// Cinematic camera settings
+#define CAMERA_DIST 2.0
+//#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
+#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
+
+#define RENDER_ROPE
+#define RENDER_PILLARS
 #define RENDER_BRIDGES
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
@@ -73,6 +77,7 @@
 
 // Bridge Construction Params
 const float _BelowCloudBottom = 5.0;
+const float _CloudBottomExtra = 150.0; // For blending into the clouds.
 
 const float _BridgeStrutInterval = 3.50;
 const float _BridgeNRep = 3.0;
@@ -146,9 +151,10 @@ const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim sp
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 
 // Cloud Params
-const float _CloudSigmaS = 1.0; // Scattering coeff
-const float _CloudSigmaA = 0.0; // Absorption coeff
-const float _CloudSigmaE = max(_CloudSigmaS + _CloudSigmaA, 1e-6); // Extinction coeff
+const vec3 _CloudSigmaS = vec3(1.0); // Scattering coeff
+//const vec3 _CloudSigmaS = vec3(1.0, 0.7, 0.7); // Scattering coeff
+const vec3 _CloudSigmaA = vec3(0.0); // Absorption coeff
+const vec3 _CloudSigmaE = max(_CloudSigmaS + _CloudSigmaA, vec3(1e-6)); // Extinction coeff
 
 // Materials
 #define MAT_ROPE 1.0
@@ -160,51 +166,81 @@ const float _CloudSigmaE = max(_CloudSigmaS + _CloudSigmaA, 1e-6); // Extinction
 #define MAT_PILLAR_GOLD  7.0
 #define MAT_DEBUG 10000.0
 
-const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
+//const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
+
 //const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
-const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
-const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
-const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.412, 0.412);
 
-const vec3 _MatBridgeStone = 2.0*vec3(0.361, 0.329, 0.370);
+//const vec3 _MatBridgeStone = 2.0*vec3(0.361, 0.329, 0.370);
+const vec3 _MatBridgeStone = 0.5*vec3(0.361, 0.329, 0.370);
+
 //const vec3 _MatBridgeBrass = vec3(0.940, 0.841, 0.517);
-const vec3 _MatBridgeBrass = vec3(0.840, 0.730, 0.370);
-const vec3 _MatBridgeBrassSpe = vec3(0.370, 0.840, 0.832);
 
-const vec3 _MatPillarStone = 0.8*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
-const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
+//const vec3 _MatBridgeBrass = vec3(0.840, 0.730, 0.370);
+const vec3 _MatBridgeBrass = 0.5*vec3(0.840, 0.730, 0.370);
+
+const vec3 _MatBridgeBrassSpe = 0.5*vec3(0.370, 0.840, 0.832);
+//const vec3 _MatBridgeBrassSpe = vec3(0.370, 0.840, 0.832);
+
 
 // Illumination
 const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
 //const vec3 _SunPos = vec3(0.2, 56, -40.1);
 
-const float _SunSize = 3.5;
 const vec3  _LightDir = normalize(_SunPos);
 
 //const vec3  _SunCol  = vec3(0.51471, 0.79919, 1.0);
 
+// Colour Schemes
+// 0 - Sunset
 #if COLOUR_SCHEME == 0
+// Sun
+const float _SunSize = 3.5;
 const vec3  _SunCol = vec3(0.98, 0.72, 0.31);
 const float _SunBrightness = 1.4;
 const float _SunHaloAttenuation = 1.4;
 const float _SunHaloRadius = 3.0;
 
+// Atmosphere
 const vec3 _ZenithCol = 0.5 * vec3(0.37, 0.14, 0.43);
 const vec3 _HorizonCol = 1.5 * vec3(0.36, 0.17, 0.66);
 const vec3 _NadirCol = vec3(0.35, 0.32, 0.8);
+
+// Materials
+const vec3 _MatRope = 0.60*vec3(0.95, 0.89, 0.74);
+const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
+
+const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
+const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.412, 0.412);
+
+const vec3 _MatPillarStone = 0.8*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
+const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 
+// 1 - Night
 #if COLOUR_SCHEME == 1
+// Sun
+const float _SunSize = 3.0;
 const vec3  _SunCol = vec3(0.65, 0.8, 1.0);
-const float _SunBrightness = 1.1;
+const float _SunBrightness = 1.2;
 const float _SunHaloAttenuation = 2.0;
 const float _SunHaloRadius = 2.0;
-//const vec3 _SunCol = vec3(0.0);
 
+// Atmosphere
 const vec3 _ZenithCol = 0.02 * vec3(0.32, 0.65, 1.0);
-const vec3 _HorizonCol = 0.02 * vec3(0.32, 0.65, 1.0);
+const vec3 _HorizonCol = 0.04 * vec3(0.32, 0.65, 1.0);
 const vec3 _NadirCol = 0.02 * vec3(0.32, 0.65, 1.0);
+
+// Materials
+const vec3 _MatRope = 0.80*vec3(0.89, 0.631, 0.341);
+const vec3 _RopeTerminatorLineCol = 0.5 * vec3(0.859, 0.761, 0.596);
+
+const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
+const vec3 _MatShideSecondary = vec3(1.0, 1.0, 1.0);
+
+const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
+const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 
 const float _ZenithAttenuation = 1.8;
@@ -610,7 +646,7 @@ vec2 sdPillars( in vec3 p )
     float height_bias = 2.0 * (smoothstep(ext_min, ext_max, len_id) * id_hash1) - 1.0; // generate taller pillars when further away
     float height = height_avg + height_dev * height_bias;
 
-    float nseg = 1.0 + floor(2.0*id_hash2);
+    float nseg = 2.0 + floor(2.0*id_hash2);
     
     float quick_hash3 = fract(id_hash1 * id_hash2);
     float n_pillar = 2.0 + 2.0*floor(2.0 * quick_hash3) + 1.0; // 3 or 5 pillars for better silhouette (even is bad)
@@ -779,14 +815,14 @@ vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
     return vec2(1e10);
 }
 
-vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
+vec2 sdBridgeSegment( in vec3 p, in float h, in float l, in float s )
 {
     // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
     // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
     vec2 res = vec2(1e10);
             
-    // Transform to correcto origin plane in y
-    p.y += _BelowCloudBottom - h;
+    // Transform to correct origin plane in y
+    //p.y += _BelowCloudBottom - h;
     
     // Bounding box
     // TODO: If there were a way to move this to before the raymarch, to avoid doing any raymarching at all,
@@ -815,7 +851,7 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
     return res;
 }
 
-vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h )
+vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float scale )
 {
     // TODO: BB on wedge between cloud bottom and bridge height (top).
 
@@ -828,8 +864,14 @@ vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h )
 
     float seg_l = 6.0; 
     p.x = p.x - 2.0*seg_l * round((p.x - seg_l) / (2.0*seg_l));;
+    p.y += _BelowCloudBottom - h;
+
+    p /= scale;
+    h /= scale;
+    vec2 res = sdBridgeSegment(p, h, seg_l, scale);
+    res.x *= scale;
     
-    return sdBridgeSegment(p, h, seg_l);
+    return res;
 }
 
 vec2 sdInfiniteBridgeAnimated( 
@@ -883,7 +925,7 @@ vec2 sdInfiniteBridgeAnimated(
     res = MIN_MAT(res, sdBridgeSegment(q, h, seg_l));
     }
     #else
-    res = sdBridgeSegment(q, h, seg_l);
+    res = sdBridgeSegment(q, h, seg_l, 1.0);
     #endif
     
     // Clip low bridges
@@ -901,7 +943,7 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
         
     // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
     vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
-    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l);
+    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l, 1.0);
     res.x *= 0.8;
     
     return res;
@@ -965,7 +1007,7 @@ vec2 map( in vec3 p )
     
     // Pillars
     #ifdef RENDER_PILLARS
-    res = MIN_MAT(res, sdPillars(p));
+    res = MIN_MAT(res, sdPillars(p + vec3(0.0, _CloudBottomExtra, 0.0)));
     #endif
     
     // Bridge Segment
@@ -975,8 +1017,20 @@ vec2 map( in vec3 p )
 
     // Static Inf Bridges
     #ifdef RENDER_BRIDGES
-    res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
-    res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5));
+    {
+    vec3 q = p + vec3(0.0, _CloudBottomExtra, 0.0);
+    res = MIN_MAT(res, sdInfiniteBridge(q, 
+        4.0*vec3(-25.0, 0.0, -25.0), 
+        -PI / 4.0, 
+        _CloudBottomExtra/2.0 + 2.5, 
+        8.0));
+        
+    res = MIN_MAT(res, sdInfiniteBridge(q,
+        4.0*vec3(-55.0, 0.0, -50.0),
+        -7.0*PI / 12.0,
+        _CloudBottomExtra/2.0 + 18.5,
+        8.0));
+    }
     #endif
     
     // Animated Inf Bridges
@@ -1142,7 +1196,7 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
         //vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, shadow);
         
         vec3 albedo = mix(sss_style_mix, _MatRope, min(1.0, 2.0 * shadow));
-        //vec3 albedo = mix(sss_style_mix, _MatRope, shadow);
+        //vec3 albedo = mix(base_shadow, _MatRope, shadow);
                
         return albedo;
     }
@@ -1244,7 +1298,7 @@ vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_si
 
 const float CLOUD_EXTENT = 1500.0;
 const float cloudStart = -0.5*CLOUD_EXTENT;
-const float cloudEnd = 0.0;
+const float cloudEnd = 10.0;
 const vec3 minCorner = vec3(-CLOUD_EXTENT, cloudStart, -CLOUD_EXTENT);
 const vec3 maxCorner = vec3(CLOUD_EXTENT, cloudEnd, CLOUD_EXTENT);
 
@@ -1347,6 +1401,7 @@ float mapCloudDensity(in vec3 p, out float cloudHeight )
     
     //Round the top of the cloud. From "Real-time rendering of volumetric clouds". 
     cloud *= saturate(remap(cloudHeight, 0.8*height, height, 1.0, 0.0));
+    //cloud *= saturate(remap(cloudHeight, 0.8*height, height, 1.0, 0.0));
     //cloud *= saturate(remap(cloudHeight, 0.0, 0.25 * (1.0-cloud), 0.0, 1.0))
     //      * saturate(remap(cloudHeight, 0.75 * height, height, 1.0, 0.0));
 
@@ -1372,7 +1427,6 @@ float mapCloudDensity(in vec3 p, out float cloudHeight )
     
 	//Carve away detail based on the noise
 	cloud = saturate(remap(cloud, detail, 1.0, 0.0, 1.0));
-    //return 0.1;
     return densityMultiplier * cloud;
 }
 
@@ -1393,8 +1447,9 @@ vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi )
     float h_placeholder;
     
     for (int i = 0; i<LIGHT_RAY_STEPS; i++)
-    {                
-        ray_density += mix(1.0, 0.75, mu) * mapCloudDensity(p + float(i) * wi * step_size, h_placeholder);
+    {
+        vec3 q = p + float(i) * wi * step_size;
+        ray_density += mix(1.0, 0.75, mu) * mapCloudDensity(q, h_placeholder);
     }
     
     // The light that reaches the point is then affected by Beer-Powder curve.
@@ -1404,7 +1459,7 @@ vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi )
     return mix(powder, beers_law, 0.5 + 0.5 * mu);
 }
 
-vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out float ray_transmittance, out float start_t )
+vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_transmittance, out float start_t )
 {
     /*
     REFERENCE MATERIALS:
@@ -1415,7 +1470,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out float ray_tr
     
     // We do a raycast through the cloud volume, at each point, figuring out the attenuation of light.
     
-    ray_transmittance = 1.0;
+    ray_transmittance = vec3(1.0);
     vec3 col = vec3(0.0);
     
     float mu = dot(rd, _LightDir);
@@ -1436,7 +1491,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out float ray_tr
     t += step_size * ray_offset;
     start_t = -1.0;
 
-    //const vec3 light_col = 100.0 * _SunCol * _SunBrightness;
+    //const vec3 light_col = 100.0 * mix(vec3(0.65, 0.8, 1.0), _SunCol, 0.5);
     const vec3 light_col = vec3(0.65, 0.8, 1.0) * 100.0;
     
     // raymarch
@@ -1446,22 +1501,32 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out float ray_tr
         
         float height;
         float density = mapCloudDensity(p, height);
-        float sigma_s = density*_CloudSigmaS;
-        float sigma_e = density*_CloudSigmaE;
+        vec3 sigma_s = density*_CloudSigmaS;
+        vec3 sigma_e = density*_CloudSigmaE;
         
         if (density > 0.0)
         {
             if (start_t < 0.0) { start_t = t; }
             // Amount of light that reaches the sample point (Li = incident radiance, from rendering eq.)
-            vec3 ambient = vec3(1.0);
             
-            vec3 li = 0.1 * ambient + 
-                      light_col * phase_function * getCloudLi(ro, p, mu, _LightDir);
+            vec3 ambient = mix(4.0, 8.0, height)*_HorizonCol;
+            //vec3 ambient = vec3(1.0);
+            
+            // Shadow casting onto the clouds is possible, but extremely expensive.
+            //   This is even when approximating, as an exact shadow cast should compute the shadow on each *light ray* sample.
+            #ifdef CLOUD_SHADOW_CAST
+            float shadow = softShadowBacktrack(p, _LightDir, 10.0);
+            #else
+            float shadow = 1.0;
+            #endif
+
+            vec3 li = ambient + 
+                      shadow * light_col * phase_function * getCloudLi(ro, p, mu, _LightDir);
                         
             li *= sigma_s; // Which is proportional to cloud density at the point
             
             // Beer-Lambert
-            float transmittance = exp(-sigma_e * step_size);
+            vec3 transmittance = exp(-sigma_e * step_size);
             
             // integrate incident radiance for reflected radiance of the ray (pixel colour).
             col += ray_transmittance * (li - li * transmittance) / sigma_e;
@@ -1469,7 +1534,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out float ray_tr
             ray_transmittance *= transmittance;
             
             // When the transmittance is almost zero, there is no more cloud occluding the sample pt, so early exit the raymarch.
-            if (length(ray_transmittance) <= 0.001) { ray_transmittance = 0.0; break; }
+            if (length(ray_transmittance) <= 0.001) { ray_transmittance = vec3(0.0); break; }
         }
         
         t += step_size;
@@ -1493,7 +1558,7 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     col += sunSSSOutline(ro, rd, tm.y);
     
     // --CLOUDS-------------------------------------------------------------------
-    float cloud_transmittance = 1.0;    
+    vec3 cloud_transmittance = vec3(1.0);    
     float ray_offset = 0.0;
     
     #ifdef CLOUD_BLUE_NOISE
@@ -1509,13 +1574,12 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     float cloud_t;
     vec3 cloud_col = 0.5 * renderClouds( ro, rd, ray_offset, cloud_transmittance, cloud_t ); 
     
-    float alpha = 1.0 - cloud_transmittance;
-
-    //col = cloud_col;
     if ( tm.x < 0.0 || cloud_t < tm.x ) {
         col = cloud_col + col * cloud_transmittance;
         //col = mix(cloud_col, col, cloud_transmittance);
     }
+    
+    
     //col = vec3(cloud_transmittance);
     //col = 0.5 * cloud_col;
     
@@ -1575,7 +1639,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         }
         #else
         //ro = ta + vec3( cos(an), -0.3, sin(an) );
-        ro = ta + vec3( cos(an), 0.3*sin(2.0*an), sin(an) );
+        ro = ta + CAMERA_DIST*vec3( cos(an), 0.3*sin(2.0*an), sin(an) );
         #endif
         
         // camera-to-world transformation
