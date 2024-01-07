@@ -50,12 +50,12 @@
 
 // HDR
 #define EXPOSURE 1.0
-#define BLOOM_INTENSITY 2.0
+#define BLOOM_INTENSITY 1.5
 #define BLOOM_THRESHOLD 1.3
 
 // Tonemappers
-#define USE_GT_TONEMAPPER
-//#define USE_ACES_TONEMAPPER
+//#define USE_GT_TONEMAPPER
+#define USE_ACES_TONEMAPPER
 
 // GT Tonemap Params
 #define GT_MAX_BRIGHTNESS 1.00
@@ -272,4 +272,25 @@ vec2 iSphere( in vec3 ro, in vec3 rd, in float rad )
 	if( h<0.0 ) return vec2(-1.0); // no intersection
     h = sqrt(h);
 	return vec2( -b-h, -b+h );
+}
+
+// https://gist.github.com/DomNomNom/46bb1ce47f68d255fd5d
+// Compute the near and far intersections using the slab method.
+// No intersection if tNear > tFar.
+vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) 
+{
+    vec3 tMin = (boxMin - rayOrigin) / rayDir;
+    vec3 tMax = (boxMax - rayOrigin) / rayDir;
+    vec3 t1 = min(tMin, tMax);
+    vec3 t2 = max(tMin, tMax);
+    float tNear = max(max(t1.x, t1.y), t1.z);
+    float tFar = min(min(t2.x, t2.y), t2.z);
+    return vec2(tNear, tFar);
+}
+
+bool insideAABB(vec3 p, vec3 min_corner, vec3 max_corner)
+{
+    float eps = 1e-4;
+	return (p.x > min_corner.x-eps) && (p.y > min_corner.y-eps) && (p.z > min_corner.z-eps) && 
+		   (p.x < max_corner.x+eps) && (p.y < max_corner.y+eps) && (p.z < max_corner.z+eps);
 }

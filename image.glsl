@@ -83,7 +83,7 @@ vec3 gt_tonemap(vec3 x) {
 
 vec3 bloom_mipmap(float mipmap_exp, vec2 offset, vec2 uv) 
 {
-    // This reverse mapping is inaccurate, and causes slight edge bleeding because no access to more buffers T^T
+    // This reverse mapping is inaccurate, and causes slight edge bleeding T^T
     float ds_factor = exp2(mipmap_exp);
     offset.x += mipmap_exp * BLOOM_MIPMAP_NUDGE + 1.0 - 2.0 / ds_factor; // Simplification of 1 - 1/(2^(n-1))
     

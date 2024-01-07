@@ -70,12 +70,12 @@ vec3 mipmap(float mipmap_exp, vec2 offset, vec2 uv)
     for (int i = -5; i < 5; i++) 
     for (int j = -5; j < 5; j++) 
     {
-        float wg = pow(1.0 - length(vec2(i,j)) * 0.125, 6.0); // Apply pseudo-gaussian weights, TODO: this is inaccurate and kind of slow.
+        float weight = pow(1.0 - length(vec2(i,j)) * 0.125, 6.0); // Apply pseudo-gaussian weights, TODO: These could be more accurate
 
         vec2 blur_coord = vec2(i,j) * scale + ds_factor * pixel_size + coord;
                 
-        bloom = max(vec3(0.0), (HDR_MAX_COL * texture(iChannel0, blur_coord, mipmap_exp + 1.0).rgb - THRESH)) * wg + bloom;
-        tot_weight += wg;
+        bloom = max(vec3(0.0), (HDR_MAX_COL * texture(iChannel0, blur_coord, mipmap_exp + 1.0).rgb - THRESH)) * weight + bloom;
+        tot_weight += weight;
     }
 
     bloom /= tot_weight;

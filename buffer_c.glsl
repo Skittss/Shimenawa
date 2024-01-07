@@ -37,7 +37,6 @@
     
     This shader has served as my learning playground for raymarching.
       It is by no means perfect, but I hope you enjoy it as much as I enjoyed making it.
-        
     このシェーダーを作ることでレイマーチングの基本を学びました。
       決して完璧じゃありませんが、見て楽しんでください。
     
@@ -51,17 +50,17 @@
 #define TAU 6.28318533
 
 // Debug (Orbital Mouse Controls) camera settings
-#define USE_DEBUG_CAMERA 0
-#define DEBUG_CAMERA_DIST 1.6
+#define USE_DEBUG_CAMERA
+#define DEBUG_CAMERA_DIST 1.0
+#define DEBUG_CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 
 // Cinematic camera settings
-#define CAMERA_DIST 2.0
-//#define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
+#define CAMERA_DIST 1.6
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
-#define RENDER_ROPE
-#define RENDER_PILLARS
-#define RENDER_BRIDGES
+//#define RENDER_ROPE
+//#define RENDER_PILLARS
+//#define RENDER_BRIDGES
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
 //   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
@@ -146,7 +145,7 @@ const float _LittlePillar_N = 3.0; // smaller numbers (generally odd) give bette
 
 // Rope Params
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
-const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5);
+const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5); // Smaller sub-waves
 const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim speed
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 
@@ -155,6 +154,27 @@ const vec3 _CloudSigmaS = vec3(1.0); // Scattering coeff
 //const vec3 _CloudSigmaS = vec3(1.0, 0.7, 0.7); // Scattering coeff
 const vec3 _CloudSigmaA = vec3(0.0); // Absorption coeff
 const vec3 _CloudSigmaE = max(_CloudSigmaS + _CloudSigmaA, vec3(1e-6)); // Extinction coeff
+
+const float _CloudWidth = 1500.0;
+const float _CloudBot = -0.5*_CloudWidth;
+const float _CloudTop = 10.0;
+const vec3  _CloudMinCorner = vec3(-_CloudWidth, _CloudBot, -_CloudWidth);
+const vec3  _CloudMaxCorner = vec3(_CloudWidth, _CloudTop, _CloudWidth);
+
+const float _CloudShapeSpeed = -5.0;
+const float _CloudDetailSpeed = -10.0;
+
+//const float shapeSpeed = -5.0;
+//const float detailSpeed = -10.0;
+
+const float power = 100.0;
+const float densityMultiplier = 0.075;
+
+const float shapeSize = 0.05;
+const float detailSize = 0.3;
+
+const float shapeStrength = 0.7;
+const float detailStrength = 0.2;
 
 // Materials
 #define MAT_ROPE 1.0
@@ -191,7 +211,7 @@ const vec3  _LightDir = normalize(_SunPos);
 //const vec3  _SunCol  = vec3(0.51471, 0.79919, 1.0);
 
 // Colour Schemes
-// 0 - Sunset
+//==0: Sunset=============================================================================================
 #if COLOUR_SCHEME == 0
 // Sun
 const float _SunSize = 3.5;
@@ -204,6 +224,7 @@ const float _SunHaloRadius = 3.0;
 const vec3 _ZenithCol = 0.5 * vec3(0.37, 0.14, 0.43);
 const vec3 _HorizonCol = 1.5 * vec3(0.36, 0.17, 0.66);
 const vec3 _NadirCol = vec3(0.35, 0.32, 0.8);
+const vec3 _FogColour = _HorizonCol;
 
 // Materials
 const vec3 _MatRope = 0.60*vec3(0.95, 0.89, 0.74);
@@ -217,12 +238,12 @@ const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
 const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 
-// 1 - Night
+//==1: Night==============================================================================================
 #if COLOUR_SCHEME == 1
 // Sun
 const float _SunSize = 3.0;
 const vec3  _SunCol = vec3(0.65, 0.8, 1.0);
-const float _SunBrightness = 1.2;
+const float _SunBrightness = 1.0;
 const float _SunHaloAttenuation = 2.0;
 const float _SunHaloRadius = 2.0;
 
@@ -230,6 +251,7 @@ const float _SunHaloRadius = 2.0;
 const vec3 _ZenithCol = 0.02 * vec3(0.32, 0.65, 1.0);
 const vec3 _HorizonCol = 0.04 * vec3(0.32, 0.65, 1.0);
 const vec3 _NadirCol = 0.02 * vec3(0.32, 0.65, 1.0);
+const vec3 _FogColour = _HorizonCol;
 
 // Materials
 const vec3 _MatRope = 0.80*vec3(0.89, 0.631, 0.341);
@@ -242,6 +264,7 @@ const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
 const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
 const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
+//========================================================================================================
 
 const float _ZenithAttenuation = 1.8;
 const float _NadirAttenuation  = 1.2;
@@ -642,9 +665,10 @@ vec2 sdPillars( in vec3 p )
     float far = step(ring_rad, len_id);
     
     float height_dev = (far == 1.0) ? 5.0 : 2.0;
-    float height_avg = (far == 1.0) ? 8.0: 4.0;
+    float height_avg = (far == 1.0) ? 8.0: 5.0;
     float height_bias = 2.0 * (smoothstep(ext_min, ext_max, len_id) * id_hash1) - 1.0; // generate taller pillars when further away
     float height = height_avg + height_dev * height_bias;
+    height *= 1.2;
 
     float nseg = 2.0 + floor(2.0*id_hash2);
     
@@ -862,7 +886,7 @@ vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float s
     // Rotate domain to fit bridge to desired line
     p.xz *= rot(an);
 
-    float seg_l = 6.0; 
+    float seg_l = 12.5; 
     p.x = p.x - 2.0*seg_l * round((p.x - seg_l) / (2.0*seg_l));;
     p.y += _BelowCloudBottom - h;
 
@@ -969,11 +993,8 @@ vec3 sky( in vec3 ro, in vec3 rd )
     
     vec3 skycol = zenith * _ZenithCol + nadir * _NadirCol + horizon * _HorizonCol;
     
-    // Clouds
-    //  Generate 3 cloud levels - Close, mid, far, which change the shape of the clouds
-    
-    //  Also add a few wispy streaks for extra detail.
-    
+    // Skybox Clouds?
+    //  Also add a few wispy streaks for extra detail?
     
     float halo = pow((_SunHaloRadius/dist), _SunHaloAttenuation);
     vec3 sun = halo * _SunCol;
@@ -981,6 +1002,15 @@ vec3 sky( in vec3 ro, in vec3 rd )
     skycol *= _SunBrightness;
     
     return skycol;
+}
+
+vec3 fog( in vec3 col, in float t, in vec3 rd )
+{
+    float amt = 1.0 - exp(-t/2500.0);
+    float sun_factor = max(dot(rd, _LightDir), 0.0);
+    
+    //return col;
+    return mix(col, _FogColour, amt);
 }
 
 //==RENDERING===================================================================================================================================
@@ -1023,13 +1053,13 @@ vec2 map( in vec3 p )
         4.0*vec3(-25.0, 0.0, -25.0), 
         -PI / 4.0, 
         _CloudBottomExtra/2.0 + 2.5, 
-        8.0));
+        7.5));
         
     res = MIN_MAT(res, sdInfiniteBridge(q,
         4.0*vec3(-55.0, 0.0, -50.0),
         -7.0*PI / 12.0,
         _CloudBottomExtra/2.0 + 18.5,
-        8.0));
+        7.5));
     }
     #endif
     
@@ -1262,17 +1292,6 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
     return 1.2*col;
 }
 
-vec3 shadeClouds( in vec3 ro, in vec3 rd, in float t, in float m ) 
-{
-    
-    return vec3(1.0);
-    //vec3 col = vec3(0.0);
-    //col = 0.5 + 0.5*nor;
-    //col = mix(vec3(0.0), col, shadow);
-
-    //return 1.2*col;
-}
-
 vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_size)
 {
     vec3 li = vec3(0.0);
@@ -1296,42 +1315,13 @@ vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_si
     return li;
 }
 
-const float CLOUD_EXTENT = 1500.0;
-const float cloudStart = -0.5*CLOUD_EXTENT;
-const float cloudEnd = 10.0;
-const vec3 minCorner = vec3(-CLOUD_EXTENT, cloudStart, -CLOUD_EXTENT);
-const vec3 maxCorner = vec3(CLOUD_EXTENT, cloudEnd, CLOUD_EXTENT);
-
-// https://gist.github.com/DomNomNom/46bb1ce47f68d255fd5d
-// Compute the near and far intersections using the slab method.
-// No intersection if tNear > tFar.
-vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
-    vec3 tMin = (boxMin - rayOrigin) / rayDir;
-    vec3 tMax = (boxMax - rayOrigin) / rayDir;
-    vec3 t1 = min(tMin, tMax);
-    vec3 t2 = max(tMin, tMax);
-    float tNear = max(max(t1.x, t1.y), t1.z);
-    float tFar = min(min(t2.x, t2.y), t2.z);
-    return vec2(tNear, tFar);
-}
-
-bool insideAABB(vec3 p){
-    float eps = 1e-4;
-	return  (p.x > minCorner.x-eps) && (p.y > minCorner.y-eps) && (p.z > minCorner.z-eps) && 
-			(p.x < maxCorner.x+eps) && (p.y < maxCorner.y+eps) && (p.z < maxCorner.z+eps);
-}
-
 bool intersectClouds(in vec3 ro, in vec3 rd, out float t_near, out float isect_dist)
 {
     // This is the bounding volume for the cloud.
-    //vec2 isect = iSphere(ro, rd, 0.3);
-    vec2 isect = intersectAABB(ro, rd, minCorner, maxCorner);
+    vec2 isect = intersectAABB(ro, rd, _CloudMinCorner, _CloudMaxCorner);
     
-    if (insideAABB(ro)) isect.x = 0.0001;
-    
-    // TODO: it is probably worth dealing with the case that the camera is inside the volume here.
-    //    (this is not just clamping -1.0 near to a small value like 0.001)
-    
+    if (insideAABB(ro, _CloudMinCorner, _CloudMaxCorner)) isect.x = 0.0001;
+        
     t_near = isect.x;
     isect_dist = isect.y - isect.x;
     
@@ -1374,23 +1364,12 @@ float getPerlinWorleyNoise(vec3 pos)
 
 float mapCloud(vec3 p) { return 1.0; }
 
-float mapCloudDensity(in vec3 p, out float cloudHeight )
+// Modified from https://www.shadertoy.com/view/3sffzj
+float mapCloudDensity(in vec3 p, out float cloudHeight)
 {  
-    const float shapeSpeed = -5.0;
-    const float detailSpeed = -10.0;
-
-    const float power = 100.0;
-    const float densityMultiplier = 0.075;
-
-    const float shapeSize = 0.05;
-    const float detailSize = 0.3;
-
-    const float shapeStrength = 0.7;
-    const float detailStrength = 0.2;
-
-    if(!insideAABB(p)) return 0.0;
+    if(!insideAABB(p, _CloudMinCorner, _CloudMaxCorner)) return 0.0;
     
-    cloudHeight = saturate((p.y - cloudStart)/(cloudEnd-cloudStart));
+    cloudHeight = saturate((p.y - _CloudBot)/(_CloudTop-_CloudBot));
     float cloud = mapCloud(p);
 
     //If there are no clouds, exit early.
@@ -1407,7 +1386,7 @@ float mapCloudDensity(in vec3 p, out float cloudHeight )
 
 
     //Animate main shape.
-    p += vec3(shapeSpeed * iTime);
+    p += vec3(_CloudShapeSpeed * iTime);
     
     //Get main shape noise, invert and scale it.
     float shape = 1.0-getPerlinWorleyNoise(shapeSize * p);
@@ -1420,7 +1399,7 @@ float mapCloudDensity(in vec3 p, out float cloudHeight )
     if(cloud <= 0.0) return 0.0;
     
     //Animate details.
-    p += vec3(detailSpeed * iTime, 0.0, 0.5 * detailSpeed * iTime);
+    p += vec3(_CloudDetailSpeed * iTime, 0.0, 0.5 * _CloudDetailSpeed * iTime);
     
     float detail = getPerlinWorleyNoise(detailSize * p);
 	detail *= detailStrength;
@@ -1434,7 +1413,7 @@ vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi )
 {
     // Sample density of volume between sample point p and the light source (wi = incident light dir).
     
-    float isect_length = CLOUD_EXTENT*1.5;
+    float isect_length = _CloudWidth*1.5;
     float tnear = 0.0;
     
     intersectClouds(p, wi, tnear, isect_length);
@@ -1546,7 +1525,6 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
 vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord ) 
 {
     // --SKY----------------------------------------------------------------------
-    //vec3 col = vec3(1.0+rd.y)*0.03;
     vec3 col = sky(ro, rd);
 
     // --GEOMETRY-----------------------------------------------------------------
@@ -1572,28 +1550,16 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     #endif
     
     float cloud_t;
+    //float min_t = tm.x; // track smallest t for fog
     vec3 cloud_col = 0.5 * renderClouds( ro, rd, ray_offset, cloud_transmittance, cloud_t ); 
     
     if ( tm.x < 0.0 || cloud_t < tm.x ) {
+        //min_t = cloud_t;
         col = cloud_col + col * cloud_transmittance;
         //col = mix(cloud_col, col, cloud_transmittance);
     }
     
-    
-    //col = vec3(cloud_transmittance);
-    //col = 0.5 * cloud_col;
-    
-    /*
-    tm = intersectClouds( ro, rd );
-    if( tm.x>0.0 )
-    {
-        col = shadeClouds(ro, rd, tm.x, tm.z);
-    }
-    */
-    
-    // TODO: This should only be applied to certain materials that SSS (and to varying extents?)
-    
-    
+    //col = fog(col, min_t, rd);
     return col;
 }
 
@@ -1625,11 +1591,15 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
 	    // camera & movement
         float an = TAU*1.4*iTime/40.0;
+        #ifdef USE_DEBUG_CAMERA
+        vec3 ta = DEBUG_CAMERA_TARGET;
+        #else
         vec3 ta = CAMERA_TARGET;
+        #endif
         
         vec2 m = iMouse.xy / iResolution.xy-.5;
         vec3 ro; // ray origin
-        #if USE_DEBUG_CAMERA
+        #ifdef USE_DEBUG_CAMERA
         if ( iMouse.x >= 0.0 ) 
         {
             ro = DEBUG_CAMERA_DIST*vec3(0.8, 0.3, 0.8);
@@ -1651,7 +1621,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         
         vec3 col = render( ro, rd, fragCoord );
         
-        // gamma        
 	    tot += col;
     #if AA>1
     }
@@ -1660,8 +1629,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     tot *= EXPOSURE;
 
-    // cheap dithering
+    // fast dithering to remove banding artifacts, particularly from the sun.
     tot += sin(fragCoord.x*114.0)*sin(fragCoord.y*211.1)/512.0;
+    
+    // Divide through by HDR max so HDR values can be stored in 0->1 float buffer
+    //   There is probably a loss of numerical precision, but oh well.
     tot /= HDR_MAX_COL;
         
     fragColor = vec4( tot, 1.0 );
