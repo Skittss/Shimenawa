@@ -22,7 +22,7 @@
     
     --LAYOUT------------------------------------------------------------------------------------
     
-      COMMON: Rendering settings, SDF primitives, intersectors, and util functions.
+      COMMON: Colour schemes, Rendering settings, SDF primitives, intersectors, and util funcs.
        
     BUFFER B: Perlin-Worley texture atlas generation for clouds. 
               (Source: https://www.shadertoy.com/view/3sffzj)

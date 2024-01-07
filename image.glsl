@@ -41,7 +41,7 @@
 
 #define colorRange 1.0
 
-// ACES for that cinematic look ;)
+// ACES for that sweet cinematic look ;)
 vec3 aces(vec3 x) {
   const float a = 2.51;
   const float b = 0.03;
@@ -51,8 +51,8 @@ vec3 aces(vec3 x) {
   return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
-// Visualisation of the following:
-// https://www.desmos.com/calculator/gslcdxvipg
+// GT Tonemapper from "HDR theory and practice", Hajime Uchimura:
+//  Curve Visualisation: https://www.desmos.com/calculator/gslcdxvipg
 //  GT tonemap is more linear in LDR colour space so can be easier to work with.
 vec3 gt_tonemap(vec3 x) {
     const vec3 P = vec3(GT_MAX_BRIGHTNESS           );
@@ -62,15 +62,17 @@ vec3 gt_tonemap(vec3 x) {
 	const vec3 c = vec3(GT_BLACK_TIGHTNESS_CURVATURE);
 	const vec3 b = vec3(GT_BLACK_TIGHTNESS_OFFSET   );
     
-	vec3 l0 = ((P - m) * l) / a;
+    vec3 l0 = ((P - m) * l) / a;
+    vec3 L0 = m - m / a;
+    vec3 L1 = m + (1.0 - m) / a;
     vec3 S0 = m + l0;
     vec3 S1 = m + a * l0;
     vec3 C2 = (a * P) / (P - S1);
     vec3 CP = -C2 / P;
 
-    vec3 w0 = 1.0f - smoothstep(x, vec3(0.0f), m);
-    vec3 w2 = smoothstep(x, m + l0, m + l0);
-    vec3 w1 = 1.0f - w0 - w2;
+    vec3 w0 = 1.0 - smoothstep(vec3(0.0), m, x);
+    vec3 w2 = step(m + l0, x);
+    vec3 w1 = 1.0 - w0 - w2;
 
     vec3 T = m * pow(x / m, c) + b;
     vec3 S = P - (P - S1) * exp(CP * (x - S0));
@@ -107,26 +109,26 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 bloom_map = HDR_MAX_COL * texture(iChannel1, uv).rgb;
     vec3 bloom = get_bloom(uv);
     
+    // HDR Post-processing
     #if POSTPROCESS
-    {
-        // HDR Post-processing
-        col = col + BLOOM_INTENSITY * bloom; // Bloom
-        col = aces(col);
-        //col = gt_tonemap(col);               // Tonemap
-        col = pow(col, vec3(GAMMA));         // Gamma
-
-        // LDR Post-processing
-        col = CONTRAST * (col - vec3(0.5)) + vec3(0.5);  // Contrast
-        col = BRIGHTNESS + col;                          // Brightness
-    }
-    #else
-    {
-        col = aces(col);
-        col = pow(col, vec3(GAMMA));
-    }
+    col = col + BLOOM_INTENSITY * bloom; // Bloom
     #endif
     
-    //col = aces(col);
+    // Tonemap
+    #ifdef USE_ACES_TONEMAP
+    col = aces(col);
+    #elifdef USE_GT_TONEMAP
+    col = gt_tonemap(col);
+    #endif
+    
+    col = pow(col, vec3(GAMMA)); // Gamma
+
+    // LDR Post-processing
+    #if POSTPROCESS
+    col = CONTRAST * (col - vec3(0.5)) + vec3(0.5);  // Contrast
+    col = BRIGHTNESS + col;                          // Brightness
+    #endif
+    
     fragColor = vec4(col, 1.0);
     
     //fragColor = vec4(texture(iChannel2, 0.3 * fragCoord.xy/iResolution.xy).rgb, 1.0);
