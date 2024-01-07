@@ -1,6 +1,46 @@
-// Shadertoy does not have arbitrary float buffers, so we have to store HDR values in the range [0, 1].
-//  Hacky solution, but we can divide through by a max HDR value before to compensate with HDR calculations.
-#define HDR_MAX_COL 25.0
+/*                                  
+
+                                                 ████                                               
+                   ██                            █████                              █████████       
+       █████      ██████             ███         ████████              ████   ██  █████   █████     
+      ███████     ███████           ██████  ██████████                 █████  ██  ████████████      
+        █████    ███████             █████    █ ██████████            ██████████  ███████████       
+                ██  █████            █████   ██ █████  █████         █████    ███ ██████████        
+              ███   ████████               █  ██ ███████████        ████████  ███████████           
+     █████  ████████████████        ██████ ██  █████████████       ██████████    ██████ █████       
+   █████████████████████          ████████ ████ ██████████            ██████    ███████ ██████      
+    ████████   ██ ███████          █████     ███████  ████           ███████ █████████ ██████       
+      █  ██     ██████████            ████    █  ████████████         ██████████ ██████████         
+     █  ██   ███████████               ██████████████████████          ███ ███████████   ██         
+     █ ███  ███   ████             ███████████   ███  █               █ ███ █   ██████     ██       
+    █ ███       ███████ █████      ████████      ███  █              █  ███      █████      ███     
+    ████   ████████████████████      ██ ████████ ██        ██         ████      ████████████████    
+    ███  ████████          ████               █████████████████         ████           █████████    
+                                                                                                    
+
+    注連縄 (Shimenawa) by Henry A. 
+    
+    --LAYOUT------------------------------------------------------------------------------------
+    
+      COMMON: Rendering settings, SDF primitives, intersectors, and util functions.
+       
+    BUFFER B: Perlin-Worley texture atlas generation for clouds. 
+              (Source: https://www.shadertoy.com/view/3sffzj)
+              
+    BUFFER C: Scene rendering
+   
+    BUFFER D: HDR Bloom pass
+    
+       IMAGE: LDR Post processing (Tonemap, Gamma correction, etc.)
+       
+    --------------------------------------------------------------------------------------------
+    
+*/
+
+//========================================================
+// COLOUR SCHEMES :)
+//   0 = sunset, 1 = night
+#define COLOUR_SCHEME 1
 
 //========================================================
 // POST-PROCESSING PARAMS
@@ -14,7 +54,9 @@
 #define BLOOM_THRESHOLD 1.3
 
 // LDR (post-HDR effects)
-#define GAMMA 2.2
+//#define GAMMA 1.0
+//#define GAMMA 2.2
+#define GAMMA 0.4545
 #define BRIGHTNESS 0.0
 #define CONTRAST 1.15
 
@@ -34,10 +76,20 @@
 
 // Width of SSAA square (e.g. AA = 2 corresponds to 4x SSAA)
 #define AA 1
-
 #define AO_SAMPLES 64.0
 
+// Cloud settings
+#define CAMERA_RAY_STEPS 32
+#define  LIGHT_RAY_STEPS 10
+#define CLOUD_BLUE_NOISE
+
+//========================================================
 // MESS WITH THESE AT YOUR OWN PERIL
+
+// Shadertoy does not have arbitrary float buffers, so we have to store HDR values in the range [0, 1].
+//  Hacky solution, but we can divide through by a max HDR value before to compensate with HDR calculations.
+#define HDR_MAX_COL 25.0
+
 #define BLOOM_MIPMAP_NUDGE 0.005
 
 //========================================================

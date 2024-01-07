@@ -1,8 +1,47 @@
+/*                                  
+
+                                                 ████                                               
+                   ██                            █████                              █████████       
+       █████      ██████             ███         ████████              ████   ██  █████   █████     
+      ███████     ███████           ██████  ██████████                 █████  ██  ████████████      
+        █████    ███████             █████    █ ██████████            ██████████  ███████████       
+                ██  █████            █████   ██ █████  █████         █████    ███ ██████████        
+              ███   ████████               █  ██ ███████████        ████████  ███████████           
+     █████  ████████████████        ██████ ██  █████████████       ██████████    ██████ █████       
+   █████████████████████          ████████ ████ ██████████            ██████    ███████ ██████      
+    ████████   ██ ███████          █████     ███████  ████           ███████ █████████ ██████       
+      █  ██     ██████████            ████    █  ████████████         ██████████ ██████████         
+     █  ██   ███████████               ██████████████████████          ███ ███████████   ██         
+     █ ███  ███   ████             ███████████   ███  █               █ ███ █   ██████     ██       
+    █ ███       ███████ █████      ████████      ███  █              █  ███      █████      ███     
+    ████   ████████████████████      ██ ████████ ██        ██         ████      ████████████████    
+    ███  ████████          ████               █████████████████         ████           █████████    
+                                                                                                    
+
+    注連縄 (Shimenawa) by Henry A. 
+    
+    --LAYOUT------------------------------------------------------------------------------------
+    
+      COMMON: Rendering settings, SDF primitives, intersectors, and util functions.
+       
+    BUFFER B: Perlin-Worley texture atlas generation for clouds. 
+              (Source: https://www.shadertoy.com/view/3sffzj)
+              
+    BUFFER C: Scene rendering
+   
+    BUFFER D: HDR Bloom pass
+    
+       IMAGE: LDR Post processing (Tonemap, Gamma correction, etc.)
+       
+    --------------------------------------------------------------------------------------------
+    
+*/
+
 // Post processing
 
 #define colorRange 1.0
 
-// This curve is kinda trash icl
+// ACES for that cinematic look ;)
 vec3 aces(vec3 x) {
   const float a = 2.51;
   const float b = 0.03;
@@ -12,8 +51,9 @@ vec3 aces(vec3 x) {
   return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
-// Really useful visualisation of the following:
+// Visualisation of the following:
 // https://www.desmos.com/calculator/gslcdxvipg
+//  GT tonemap is more linear in LDR colour space so can be easier to work with.
 vec3 gt_tonemap(vec3 x) {
     const vec3 P = vec3(GT_MAX_BRIGHTNESS           );
 	const vec3 a = vec3(GT_CONTRAST                 );
@@ -36,7 +76,6 @@ vec3 gt_tonemap(vec3 x) {
     vec3 S = P - (P - S1) * exp(CP * (x - S0));
     vec3 L = m + a * (x - m);
 
-    // Should probably clamp this
     return T * w0 + L * w1 + S * w2;
 }
 
@@ -72,7 +111,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     {
         // HDR Post-processing
         col = col + BLOOM_INTENSITY * bloom; // Bloom
-        col = gt_tonemap(col);               // Tonemap
+        col = aces(col);
+        //col = gt_tonemap(col);               // Tonemap
         col = pow(col, vec3(GAMMA));         // Gamma
 
         // LDR Post-processing
@@ -81,9 +121,13 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     }
     #else
     {
+        col = aces(col);
         col = pow(col, vec3(GAMMA));
     }
     #endif
-
+    
+    //col = aces(col);
     fragColor = vec4(col, 1.0);
+    
+    //fragColor = vec4(texture(iChannel2, 0.3 * fragCoord.xy/iResolution.xy).rgb, 1.0);
 }

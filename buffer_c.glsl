@@ -20,10 +20,25 @@
 
     注連縄 (Shimenawa) by Henry A. 
     
-      This shader has served as my learning playground for raymarching.
-      It is by no means perfect, but I hope you enjoy it as much as I enjoyed the process of making it.
+    --LAYOUT------------------------------------------------------------------------------------
+    
+      COMMON: Rendering settings, SDF primitives, intersectors, and util functions.
+       
+    BUFFER B: Perlin-Worley texture atlas generation for clouds. 
+              (Source: https://www.shadertoy.com/view/3sffzj)
+              
+    BUFFER C: Scene rendering
+   
+    BUFFER D: HDR Bloom pass
+    
+       IMAGE: LDR Post processing (Tonemap, Gamma correction, etc.)
+       
+    --------------------------------------------------------------------------------------------
+    
+    This shader has served as my learning playground for raymarching.
+      It is by no means perfect, but I hope you enjoy it as much as I enjoyed making it.
         
-      このシェーダーを作ることでレイマーチングの基本を学びました。
+    このシェーダーを作ることでレイマーチングの基本を学びました。
       決して完璧じゃありませんが、見て楽しんでください。
     
     Also, apologies for the long compile time! I tried to make it as quick as possible.
@@ -36,9 +51,13 @@
 #define TAU 6.28318533
 
 #define USE_DEBUG_CAMERA 1
-#define DEBUG_CAMERA_DIST 280.0
+#define DEBUG_CAMERA_DIST 1.0
 #define CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 //#define CAMERA_TARGET vec3(0.0, -.1, 0.0)
+
+//#define RENDER_ROPE
+//#define RENDER_PILLARS
+#define RENDER_BRIDGES
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
 //   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
@@ -161,16 +180,32 @@ const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
 //const vec3 _SunPos = vec3(0.2, 56, -40.1);
 
 const float _SunSize = 3.5;
-const float _SunBrightness = 1.4;
-const vec3  _SunCol  = vec3(0.98, 0.72, 0.31);
-//const vec3  _LightDir = normalize(_SunPos);
-const vec3  _LightDir = normalize(vec3(cos(1.0), 0.6, sin(1.0)));
+const vec3  _LightDir = normalize(_SunPos);
 
 //const vec3  _SunCol  = vec3(0.51471, 0.79919, 1.0);
+
+#if COLOUR_SCHEME == 0
+const vec3  _SunCol = vec3(0.98, 0.72, 0.31);
+const float _SunBrightness = 1.4;
+const float _SunHaloAttenuation = 1.4;
+const float _SunHaloRadius = 3.0;
 
 const vec3 _ZenithCol = 0.5 * vec3(0.37, 0.14, 0.43);
 const vec3 _HorizonCol = 1.5 * vec3(0.36, 0.17, 0.66);
 const vec3 _NadirCol = vec3(0.35, 0.32, 0.8);
+#endif
+
+#if COLOUR_SCHEME == 1
+const vec3  _SunCol = vec3(0.65, 0.8, 1.0);
+const float _SunBrightness = 1.1;
+const float _SunHaloAttenuation = 2.0;
+const float _SunHaloRadius = 2.0;
+//const vec3 _SunCol = vec3(0.0);
+
+const vec3 _ZenithCol = 0.02 * vec3(0.32, 0.65, 1.0);
+const vec3 _HorizonCol = 0.02 * vec3(0.32, 0.65, 1.0);
+const vec3 _NadirCol = 0.02 * vec3(0.32, 0.65, 1.0);
+#endif
 
 const float _ZenithAttenuation = 1.8;
 const float _NadirAttenuation  = 1.2;
@@ -898,7 +933,7 @@ vec3 sky( in vec3 ro, in vec3 rd )
     //  Also add a few wispy streaks for extra detail.
     
     
-    float halo = pow((3.0/dist), 0.9);
+    float halo = pow((_SunHaloRadius/dist), _SunHaloAttenuation);
     vec3 sun = halo * _SunCol;
     skycol = 1.0 - exp(-(skycol + sun));
     skycol *= _SunBrightness;
@@ -907,26 +942,6 @@ vec3 sky( in vec3 ro, in vec3 rd )
 }
 
 //==RENDERING===================================================================================================================================
-
-vec2 mapClouds( in vec3 p )
-{
-    vec2 res = vec2(1e10); // (Distance, Material)
-    
-    #if 1
-    res = MIN_MAT(res, vec2(
-        sdSphere(p, 0.3),
-        MAT_DEBUG
-    ));
-    #endif
-    
-    #if 1
-    // Basic idea here is to sample a number of points within the volume in the direction of the light to figure out the light attenuation at p.
-    float intersection_length = 0.0; // length between pt p in cloud volume, and it's exit pt in the light dir.
-    
-    #endif
-    
-    return res;
-}
 
 vec2 mapBg( in vec3 p )
 {
@@ -943,13 +958,13 @@ vec2 map( in vec3 p )
     #endif
     
     // Rope
-    #if 0
+    #ifdef RENDER_ROPE
     float r_id;
     res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
     #endif
     
     // Pillars
-    #if 0
+    #ifdef RENDER_PILLARS
     res = MIN_MAT(res, sdPillars(p));
     #endif
     
@@ -959,7 +974,7 @@ vec2 map( in vec3 p )
     #endif
 
     // Static Inf Bridges
-    #if 0
+    #ifdef RENDER_BRIDGES
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-25.0, 0.0, -25.0), -PI / 4.0, 2.5));
     res = MIN_MAT(res, sdInfiniteBridge(p, vec3(-55.0, 0.0, -50.0), -7.0*PI / 12.0, 4.5));
     #endif
@@ -1107,31 +1122,6 @@ vec3 intersect( in vec3 ro, in vec3 rd )
     return res; // t, nearest, mat_id
 }
 
-/*
-vec3 intersectClouds( in vec3 ro, in vec3 rd )
-{
-    vec3 res = vec3(-1.0, 1e10, -1.0);
-    
-    // TODO: One bounding volume might not be enough for this whole scene.
-    //        Ideally could find a way to stop raymarching for specific objects without having to pass ro, rd into map()...
-    vec2 tminmax = iSphere( ro, rd, 1000000000.0 );
-    if( tminmax.y>0.0 )
-    {
-        // raymarch
-        float t = max(tminmax.x,0.001);
-        for( int i=0; i<RAYMARCH_MAX_STEPS && t<tminmax.y; i++ )
-        {
-            vec2 h = mapClouds(ro+t*rd);
-            res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
-            if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
-            t += h.x;
-        }
-    }
-    
-    return res; // t, nearest, mat_id
-}
-*/
-
 vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m ) 
 {
     // TODO: Bridges and pillars should cast (relatively) sharp shadows on one another, so they need a separate map func.
@@ -1243,8 +1233,8 @@ vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_si
     for (float i = 0.0; i<OCTAVES; i++)
     {
         phase = mix(henyeyGreenstein(-0.1 * c, mu), henyeyGreenstein(0.3 * c, mu), 0.7);
-        li += b * phase * exp(-step_size * extinction * _CloudSigmaE * a);
-        a*=0.2;
+        li += b * phase * exp(-step_size * extinction * a);
+        a*=0.25;
         b*=0.5;
         c*=0.5;
     }
@@ -1252,9 +1242,9 @@ vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_si
     return li;
 }
 
-const float CLOUD_EXTENT = 100.0;
-const float cloudStart = 0.0;
-const float cloudEnd = CLOUD_EXTENT;
+const float CLOUD_EXTENT = 1500.0;
+const float cloudStart = -0.5*CLOUD_EXTENT;
+const float cloudEnd = 80.0;
 const vec3 minCorner = vec3(-CLOUD_EXTENT, cloudStart, -CLOUD_EXTENT);
 const vec3 maxCorner = vec3(CLOUD_EXTENT, cloudEnd, CLOUD_EXTENT);
 
@@ -1328,10 +1318,10 @@ float getPerlinWorleyNoise(vec3 pos)
     return mix(data.x, data.y, f);
 }
 
-float fetchCloudTexel(vec3 p) { return texture(iChannel0, 0.5 + 0.5*(p.xz/(2.0*CLOUD_EXTENT))).b; }
+float mapCloud(vec3 p) { return 1.0; }
 
-float mapCloudDensity(in vec3 p, out float cloudHeight, bool sampleDetail)
-{    
+float mapCloudDensity(in vec3 p, out float cloudHeight )
+{  
     const float shapeSpeed = -5.0;
     const float detailSpeed = -10.0;
 
@@ -1345,8 +1335,9 @@ float mapCloudDensity(in vec3 p, out float cloudHeight, bool sampleDetail)
     const float detailStrength = 0.2;
 
     if(!insideAABB(p)) return 0.0;
+    
     cloudHeight = saturate((p.y - cloudStart)/(cloudEnd-cloudStart));
-    float cloud = fetchCloudTexel(p);
+    float cloud = mapCloud(p);
 
     //If there are no clouds, exit early.
     if(cloud <= 0.0) return 0.0;
@@ -1356,6 +1347,9 @@ float mapCloudDensity(in vec3 p, out float cloudHeight, bool sampleDetail)
     
     //Round the top of the cloud. From "Real-time rendering of volumetric clouds". 
     cloud *= saturate(remap(cloudHeight, 0.8*height, height, 1.0, 0.0));
+    //cloud *= saturate(remap(cloudHeight, 0.0, 0.25 * (1.0-cloud), 0.0, 1.0))
+    //      * saturate(remap(cloudHeight, 0.75 * height, height, 1.0, 0.0));
+
 
     //Animate main shape.
     p += vec3(shapeSpeed * iTime);
@@ -1378,6 +1372,7 @@ float mapCloudDensity(in vec3 p, out float cloudHeight, bool sampleDetail)
     
 	//Carve away detail based on the noise
 	cloud = saturate(remap(cloud, detail, 1.0, 0.0, 1.0));
+    //return 0.1;
     return densityMultiplier * cloud;
 }
 
@@ -1385,8 +1380,7 @@ vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi )
 {
     // Sample density of volume between sample point p and the light source (wi = incident light dir).
     
-    const int LI_SAMPLE_STEPS = 10;
-    float isect_length = CLOUD_EXTENT*0.75;
+    float isect_length = CLOUD_EXTENT*1.5;
     float tnear = 0.0;
     
     intersectClouds(p, wi, tnear, isect_length);
@@ -1394,17 +1388,13 @@ vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi )
     // Similar approach here as with the raymarch into the cloud, we do a fixed number of steps out of the cloud.
     float ray_density = 0.0;
     
-    float step_size = isect_length/float(LI_SAMPLE_STEPS);
+    float step_size = isect_length/float(LIGHT_RAY_STEPS);
     
     float h_placeholder;
     
-    for (int i = 0; i<LI_SAMPLE_STEPS; i++)
-    {
-        bool fast_texel_sample = ray_density < 0.3;
-        
-        mapCloudDensity(p + float(i) * wi * step_size, h_placeholder, fast_texel_sample);
-        
-        ray_density += mapCloudDensity(p + float(i) * wi * step_size, h_placeholder, fast_texel_sample);
+    for (int i = 0; i<LIGHT_RAY_STEPS; i++)
+    {                
+        ray_density += mix(1.0, 0.75, mu) * mapCloudDensity(p + float(i) * wi * step_size, h_placeholder);
     }
     
     // The light that reaches the point is then affected by Beer-Powder curve.
@@ -1414,7 +1404,7 @@ vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi )
     return mix(powder, beers_law, 0.5 + 0.5 * mu);
 }
 
-vec3 renderClouds( in vec3 ro, in vec3 rd, out float ray_transmittance )
+vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out float ray_transmittance, out float start_t )
 {
     /*
     REFERENCE MATERIALS:
@@ -1431,8 +1421,6 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, out float ray_transmittance )
     float mu = dot(rd, _LightDir);
     // Forward and backwards scattering
     float phase_function = mix(henyeyGreenstein(-0.3, mu), henyeyGreenstein(0.3, mu), 0.7);
-
-    const int CLOUD_RAYMARCH_STEPS = 32;
     
     // As we have an SDF for the cloud, we can start the raymarch at the cloud surface,
     //   instead of doing some sort of variable step size approach.
@@ -1444,23 +1432,26 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, out float ray_transmittance )
     
     // TODO: Early exit if no intersection.
     
-    float step_size = isect_length / float(CLOUD_RAYMARCH_STEPS);
-    
-    //const vec3 light_col = _SunCol * _SunBrightness;
-    const vec3 light_col = vec3(200.0);
+    float step_size = isect_length / float(CAMERA_RAY_STEPS);
+    t += step_size * ray_offset;
+    start_t = -1.0;
+
+    //const vec3 light_col = 100.0 * _SunCol * _SunBrightness;
+    const vec3 light_col = vec3(0.65, 0.8, 1.0) * 100.0;
     
     // raymarch
-    for(int i = 0; i < CLOUD_RAYMARCH_STEPS; i++)
+    for(int i = 0; i < CAMERA_RAY_STEPS; i++)
     {    
         vec3 p = ro + t*rd;
         
         float height;
-        float density = mapCloudDensity(p, height, true);
+        float density = mapCloudDensity(p, height);
         float sigma_s = density*_CloudSigmaS;
         float sigma_e = density*_CloudSigmaE;
         
         if (density > 0.0)
         {
+            if (start_t < 0.0) { start_t = t; }
             // Amount of light that reaches the sample point (Li = incident radiance, from rendering eq.)
             vec3 ambient = vec3(1.0);
             
@@ -1487,13 +1478,13 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, out float ray_transmittance )
     return col;
 }
 
-vec3 render( in vec3 ro, in vec3 rd ) 
+vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord ) 
 {
-    // background
+    // --SKY----------------------------------------------------------------------
     //vec3 col = vec3(1.0+rd.y)*0.03;
     vec3 col = sky(ro, rd);
 
-    // raymarch geometry
+    // --GEOMETRY-----------------------------------------------------------------
     vec3 tm = intersect( ro, rd );
     if( tm.x>0.0 )
     {
@@ -1501,13 +1492,30 @@ vec3 render( in vec3 ro, in vec3 rd )
     }
     col += sunSSSOutline(ro, rd, tm.y);
     
-    float cloud_transmittance = 1.0;
-    vec3 cloud_col = 0.1 * renderClouds( ro, rd, cloud_transmittance ); 
+    // --CLOUDS-------------------------------------------------------------------
+    float cloud_transmittance = 1.0;    
+    float ray_offset = 0.0;
+    
+    #ifdef CLOUD_BLUE_NOISE
+    // Wait for texture to load
+    if(iChannelResolution[1].xy == vec2(1024.0))
+    {
+        float blue_noise = texture(iChannel1, fragCoord / 1024.0).r;
+        ray_offset = fract(blue_noise + float(iFrame%32) * PHI);
+        
+    }
+    #endif
+    
+    float cloud_t;
+    vec3 cloud_col = 0.5 * renderClouds( ro, rd, ray_offset, cloud_transmittance, cloud_t ); 
     
     float alpha = 1.0 - cloud_transmittance;
 
-    col += alpha * cloud_col;
-    //col = mix(cloud_col, col, cloud_transmittance);
+    //col = cloud_col;
+    if ( tm.x < 0.0 || cloud_t < tm.x ) {
+        col = cloud_col + col * cloud_transmittance;
+        //col = mix(cloud_col, col, cloud_transmittance);
+    }
     //col = vec3(cloud_transmittance);
     //col = 0.5 * cloud_col;
     
@@ -1520,6 +1528,7 @@ vec3 render( in vec3 ro, in vec3 rd )
     */
     
     // TODO: This should only be applied to certain materials that SSS (and to varying extents?)
+    
     
     return col;
 }
@@ -1576,7 +1585,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         float fl = 2.0;
         vec3 rd = ca * normalize( vec3(p,fl) );
         
-        vec3 col = render( ro, rd );
+        vec3 col = render( ro, rd, fragCoord );
         
         // gamma        
 	    tot += col;
@@ -1592,6 +1601,4 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     tot /= HDR_MAX_COL;
         
     fragColor = vec4( tot, 1.0 );
-    
-    fragColor = vec4(texture(iChannel0, 0.3 * fragCoord.xy/iResolution.xy).rgb, 1.0);
 }
