@@ -71,7 +71,7 @@
 
 #define ZERO (min(iFrame,0))
 
-// Bridge Params
+// Bridge Construction Params
 const float _BelowCloudBottom = 5.0;
 
 const float _BridgeStrutInterval = 3.50;
@@ -111,14 +111,14 @@ const float _BridgeMiniStrutThickness = 0.075;
 const float _BridgeMiniStrut_Y_Extrusion = 0.05;
 const float _BridgeMiniStrut_Z_Extrusion = 0.07;
 
-// Infinite bridges
+// Infinite Bridge Construction Params
 const float _BelowCloudBottomPillar = 10.0;
 
 const float _InfBridgeAnimSpeed = 0.3;
 const float _InfBridgeLowOffset = 8.0;
 const float _InfBridgeAnimSegLen = 6.0;
 
-// Pillar Params
+// Pillar Construction Params
 const float _PillarRoundness = 0.001;
 const float _PillarBevelRoundness = 0.01;
 const float _PillarBevelExtrusion = 0.1;
@@ -1244,7 +1244,7 @@ vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_si
 
 const float CLOUD_EXTENT = 1500.0;
 const float cloudStart = -0.5*CLOUD_EXTENT;
-const float cloudEnd = 80.0;
+const float cloudEnd = 0.0;
 const vec3 minCorner = vec3(-CLOUD_EXTENT, cloudStart, -CLOUD_EXTENT);
 const vec3 maxCorner = vec3(CLOUD_EXTENT, cloudEnd, CLOUD_EXTENT);
 

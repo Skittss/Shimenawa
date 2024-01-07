@@ -45,7 +45,7 @@
 //========================================================
 // POST-PROCESSING PARAMS
 
-// Toggle - Gamma applied either way
+// Toggle - (Gamma and tonemapper always applied)
 #define POSTPROCESS 1
 
 // HDR
@@ -53,20 +53,25 @@
 #define BLOOM_INTENSITY 2.0
 #define BLOOM_THRESHOLD 1.3
 
-// LDR (post-HDR effects)
-//#define GAMMA 1.0
-//#define GAMMA 2.2
-#define GAMMA 0.4545
-#define BRIGHTNESS 0.0
-#define CONTRAST 1.15
+// Tonemappers
+#define USE_GT_TONEMAPPER
+//#define USE_ACES_TONEMAPPER
 
-// GT TONEMAP
+// GT Tonemap Params
 #define GT_MAX_BRIGHTNESS 1.00
 #define GT_CONTRAST 1.00
 #define GT_LINEAR_OFFSET 0.22
 #define GT_LINEAR_LENGTH 0.40
 #define GT_BLACK_TIGHTNESS_CURVATURE 1.33
 #define GT_BLACK_TIGHTNESS_OFFSET 0.00
+
+
+// LDR (post-HDR effects)
+//#define GAMMA 1.0
+//#define GAMMA 2.2
+#define GAMMA 0.4545
+#define BRIGHTNESS 0.0
+#define CONTRAST 1.15
 
 //========================================================
 // RENDERING PARAMS
