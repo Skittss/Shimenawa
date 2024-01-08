@@ -45,6 +45,16 @@
     
 */
 
+// TODO:
+//   - Fog
+//   - Stars
+//   - Alt. Colour schemes
+//   - Pillars are currently the most expensive part of the scene due to lots of complex domain repetition.
+//        There ends up being 8x more work done than usual to ensure the correctness of the SDF.
+//        Even with LOD to basic cylinders, the framerate remains low, so it would be best to tackle making
+//        the domain repetition more efficient - but I haven't had time to do so. Comparing only the neighbours
+//        closer to the camera would probably improve it 2x, but may mess up shadows (particularly cloud shadow casting)
+//        as a result. Any other suggestions are welcome c:
 //================================================================================================================================================
 //--Consts and Debug---------------------------------------------------------------------------------------------------------------
 #define ZERO (min(iFrame,0))
@@ -65,8 +75,9 @@
 
 // Debug Rendering settings
 #define RENDER_ROPE
-//#define RENDER_PILLARS
+#define RENDER_PILLARS
 #define RENDER_BRIDGES
+#define RENDER_CLOUDS
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
 //   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
@@ -329,9 +340,7 @@ float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
     smallDim.y /= 2.0;
     smallDim.z *= 0.9;
            
-    // 風から動きの準備
-    // 垂直動きが欲しいので、回りの後でする。
-    // 接続点から距離を使って動きの強さが決まる
+    // Intensity of motion is determined by distance from connection point (to rope)
     vec3 connectorPos = vec3(0., 2.0 * dim.y, -1.5 * dim.z);
     float distToConnector = length(connectorPos - p);
 
@@ -607,7 +616,8 @@ vec2 sdPillars( in vec3 p )
     float len_base_id = length(base_id);
     
     // Early exit on maximum extent for opt (no more pillars beyond this point so raymarch accuracy not affected)
-    if (len_base_id > ext_max) return vec2(1e10);
+    //   Also early exit when y drops below a certain level (i.e. we are in dense cloud)
+    if (len_base_id > ext_max || p.y < 50.0 ) return vec2(1e10);
     
     #if SLOWER_PILLARS
     for (int i=-1; i<2; i++)
@@ -977,6 +987,11 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
 }
 
 //==ILLUMINATION================================================================================================================================
+vec3 stars( in vec3 ro, in vec3 rd )
+{
+    return vec3(0.0);
+}
+
 vec3 sky( in vec3 ro, in vec3 rd ) 
 {
     // Make sun always appear as if viewed from a certain point to deal with the fact it
@@ -1002,6 +1017,10 @@ vec3 sky( in vec3 ro, in vec3 rd )
     vec3 sun = halo * _SunCol;
     skycol = 1.0 - exp(-(skycol + sun));
     skycol *= _SunBrightness;
+    
+    #if COLOUR_SCHEME == 1
+    skycol += stars(ro, rd);
+    #endif
     
     return skycol;
 }
@@ -1102,14 +1121,6 @@ vec2 mapBackground( in vec3 p )
 
 vec3 calcNormalBackground( in vec3 pos )
 {
-#if 0
-    vec2 e = vec2(1.0,-1.0)*0.5773;
-    const float eps = 0.00025;
-    return normalize( e.xyy*mapBackground( pos + e.xyy*eps ).x + 
-					  e.yyx*mapBackground( pos + e.yyx*eps ).x + 
-					  e.yxy*mapBackground( pos + e.yxy*eps ).x + 
-					  e.xxx*mapBackground( pos + e.xxx*eps ).x );
-#else
     // klems's trick to prevent the compiler from inlining map() 4 times
     vec3 n = vec3(0.0);
     for( int i=ZERO; i<4; i++ )
@@ -1118,7 +1129,6 @@ vec3 calcNormalBackground( in vec3 pos )
         n += e*mapBackground(pos+0.0005*e).x;
     }
     return normalize(n);
-#endif
 }
 
 vec3 intersectBackground( in vec3 ro, in vec3 rd )
@@ -1127,7 +1137,7 @@ vec3 intersectBackground( in vec3 ro, in vec3 rd )
     
     // TODO: One bounding volume might not be enough for this whole scene.
     //        Ideally could find a way to stop raymarching for specific objects without having to pass ro, rd into map()...
-    vec2 tminmax = iSphere( ro, rd, 1000000000.0 );
+    vec2 tminmax = iSphere( ro, rd, 6000.0 );
 	if( tminmax.y>0.0 )
     {
         // raymarch
@@ -1160,14 +1170,6 @@ vec2 mapForeground( in vec3 p )
 
 vec3 calcNormalForeground( in vec3 pos )
 {
-#if 0
-    vec2 e = vec2(1.0,-1.0)*0.5773;
-    const float eps = 0.00025;
-    return normalize( e.xyy*mapForeground( pos + e.xyy*eps ).x + 
-					  e.yyx*mapForeground( pos + e.yyx*eps ).x + 
-					  e.yxy*mapForeground( pos + e.yxy*eps ).x + 
-					  e.xxx*mapForeground( pos + e.xxx*eps ).x );
-#else
     // klems's trick to prevent the compiler from inlining map() 4 times
     vec3 n = vec3(0.0);
     for( int i=ZERO; i<4; i++ )
@@ -1176,7 +1178,6 @@ vec3 calcNormalForeground( in vec3 pos )
         n += e*mapForeground(pos+0.0005*e).x;
     }
     return normalize(n);
-#endif
 }
 
 vec3 intersectForeground( in vec3 ro, in vec3 rd )
@@ -1652,6 +1653,7 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     col += sunSSSOutline(ro, rd, min_tm.y);
     
     // --CLOUDS-------------------------------------------------------------------
+    #ifdef RENDER_CLOUDS
     vec3 cloud_transmittance = vec3(1.0);    
     float ray_offset = 0.0;
     
@@ -1674,6 +1676,7 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
         col = cloud_col + col * cloud_transmittance;
         //col = mix(cloud_col, col, cloud_transmittance);
     }
+    #endif
     
     //col = fog(col, min_t, rd);
     return col;

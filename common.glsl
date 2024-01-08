@@ -71,6 +71,7 @@
 #define GAMMA 0.4545
 #define BRIGHTNESS 0.0
 #define CONTRAST 1.15
+#define VIGNETTE
 
 //========================================================
 // RENDERING PARAMS
