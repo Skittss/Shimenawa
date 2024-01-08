@@ -41,7 +41,7 @@
 
 #define colorRange 1.0
 
-// ACES for that sweet cinematic look ;)
+// ACES for that sweet film look ;)
 vec3 aces(vec3 x) {
   const float a = 2.51;
   const float b = 0.03;

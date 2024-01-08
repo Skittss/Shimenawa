@@ -44,6 +44,7 @@
     長いコンパイル時間にすみません。なるべく短くしようとしました。
     
 */
+
 //================================================================================================================================================
 //--Consts and Debug---------------------------------------------------------------------------------------------------------------
 #define ZERO (min(iFrame,0))
@@ -63,9 +64,9 @@
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Debug Rendering settings
-//#define RENDER_ROPE
+#define RENDER_ROPE
 //#define RENDER_PILLARS
-//#define RENDER_BRIDGES
+#define RENDER_BRIDGES
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
 //   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
@@ -76,6 +77,7 @@
 #define SLOWER_BRIDGES 0
 // Fast pillars are not reccommended (very broken).
 #define SLOWER_PILLARS 1
+
 
 //--Bridge Construction Params-----------------------------------------------------------------------------------------------------
 const float _BelowCloudBottom = 5.0;
@@ -173,6 +175,8 @@ const float _CloudShapeStrength  = 0.7;
 const float _CloudDetailSpeed = -10.0;
 const float _CloudDetailSize = 0.3;
 const float _CloudDetailStrength = 0.2;
+
+const float _CloudLightIntensity = 100.0;
 
 //--Materials----------------------------------------------------------------------------------------------------------------------
 #define MAT_ROPE 1.0
@@ -655,7 +659,7 @@ vec2 sdPillars( in vec3 p )
 }
 
 //--Bridges------------------------------------------------------------------------------------------------------------------------
-vec2 sdBridgeStrut( in vec3 strut_base, in float h) 
+vec2 sdBridgeStrut( in vec3 strut_base, in float h ) 
 {
     vec2 res = vec2(1e10);
     
@@ -747,6 +751,27 @@ vec2 sdBridgeStrut( in vec3 strut_base, in float h)
     return res;
 }
 
+vec2 sdBridgeStrutLOD( in vec3 strut_base, in float h ) 
+{
+    vec2 res = vec2(1e10);
+    
+    // strut beam
+    vec3 q = strut_base;
+    res = MIN_MAT(res, vec2(
+        sdBox(q, vec3(_BridgeStrutThickness, h, _BridgeStrutThickness)) - _BridgeStrutRoundness, 
+        MAT_BRIDGE_STONE
+    ));
+
+    // strut-bridge connector wedge
+    q = strut_base - vec3(0.0, h - _BridgeWedgeHeight, 0.0);
+    res = MIN_MAT(res, vec2(
+        sdPrism(q, _BridgeStrutThickness, _BridgeWedgeTopWidth, _BridgeWedgeHeight, _BridgeStrutThickness) - _BridgeStrutRoundness, 
+        MAT_BRIDGE_STONE
+    ));
+    
+    return res;
+}
+
 vec2 sdBridgeTop( in vec3 p, in float h, in float l ) 
 {
     vec2 res = vec2(1e10);
@@ -791,15 +816,8 @@ vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
     return res;
 }
 
-vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
+vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
 {
-    // TODO: If we LOD the bridges, we should be able to a few more.
-    return vec2(1e10);
-}
-
-vec2 sdBridgeSegment( in vec3 p, in float h, in float l, in float s )
-{
-    // TODO: These arches most likely should only cast shadows on eachother, not the scene foreground.
     // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
     vec2 res = vec2(1e10);
             
@@ -807,8 +825,6 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l, in float s )
     //p.y += _BelowCloudBottom - h;
     
     // Bounding box
-    // TODO: If there were a way to move this to before the raymarch, to avoid doing any raymarching at all,
-    //         this would be a lot faster.
     // TODO: Could create a more exact bounding box here if needed.
     float d = sdBox(p, vec3(2.0*l, h + _BridgeTopThickness + 0.3, _BridgeTopWidth + 0.05));
     if (d > 1.0) return vec2(d, 1e10);
@@ -833,9 +849,33 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l, in float s )
     return res;
 }
 
+vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
+{
+    // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
+    vec2 res = vec2(1e10);
+                
+    // Bounding box
+    // TODO: Could create a more exact bounding box here if needed.
+    float d = sdBox(p, vec3(2.0*l, h + _BridgeTopThickness + 0.3, _BridgeTopWidth + 0.05));
+    if (d > 1.0) return vec2(d, 1e10);
+    
+    // Domain repetition for struts - render as many struts as we like for the price of one.
+    vec3 strut_base = p - vec3(_BridgeStrutOffset, 0.0, 0.0);
+    float rep_id = clamp(round((strut_base.x / _BridgeStrutInterval)), 0.0, _BridgeNRep);
+    strut_base.x -= rep_id * _BridgeStrutInterval;
+    
+    res = MIN_MAT(res, sdBridgeStrutLOD(strut_base, h));
+    
+    vec3 top_base = p - vec3(0.0, h, 0.0);
+    res = MIN_MAT(res, sdBridgeTop(top_base, h, l));
+    
+    return res;
+}
+
 vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float scale )
 {
     // TODO: BB on wedge between cloud bottom and bridge height (top).
+    bool use_lod = length(p) > BRIDGE_LOD_DIST;
 
     // Map bridge to line in XZ plane with line origin (o) and direction in XZ defined by angle from x basis vector (an).
     // Translate to point on bridge line
@@ -850,7 +890,12 @@ vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float s
 
     p /= scale;
     h /= scale;
-    vec2 res = sdBridgeSegment(p, h, seg_l, scale);
+    
+    
+    vec2 res = use_lod ? 
+        sdBridgeSegmentLOD(p, h, seg_l) :
+        sdBridgeSegment(p, h, seg_l);
+        
     res.x *= scale;
     
     return res;
@@ -907,7 +952,7 @@ vec2 sdInfiniteBridgeAnimated(
     res = MIN_MAT(res, sdBridgeSegment(q, h, seg_l));
     }
     #else
-    res = sdBridgeSegment(q, h, seg_l, 1.0);
+    res = sdBridgeSegment(q, h, seg_l);
     #endif
     
     // Clip low bridges
@@ -925,7 +970,7 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
         
     // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
     vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
-    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l, 1.0);
+    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l);
     res.x *= 0.8;
     
     return res;
@@ -970,24 +1015,34 @@ vec3 fog( in vec3 col, in float t, in vec3 rd )
     return mix(col, _FogColour, amt);
 }
 
+// TODO: I don't think this object scales well with distance / object size.
+vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
+{
+    // Create an outline around objects within a certain radius around the sun.
+    //    The view direction dot product can be used to determine the radius.
+    //    Raymarching near misses are used to generate the outline. 
+    //   Then, a power curve is used to decay the outline based on distance from the edge of the sun.
+    float rd_dot_sun = dot(rd, normalize(_SunPos - ro));
+    
+    float angle_factor = 1.0 / (1.0 - _OutlineDotThreshold) * (max(0.0, rd_dot_sun - _OutlineDotThreshold));
+    angle_factor = pow(angle_factor, _OutlineRadialAttenuation);
+    
+    // It might be faster to check the dot threshold here when computing the outline if the attenuation power curve is expensive.
+    float a = step(0.001, d); // Stencil for non-edges
+    float b = clamp((d - _OutlineExtraThickness) / _OutlineMaxDist, 0.0, 1.0);
+    
+    return a * angle_factor * _OutlineCol * pow(1.0 - b, _OutlineAttenuation);
+}
+
 //==RENDERING===================================================================================================================================
 
 //--GEOMETRY-----------------------------------------------------------------------------------------------------------------------
-vec2 mapBg( in vec3 p )
+// Note: Splitting SDF & Lighting calculations into fg / bg makes performance and compile time better as 
+//            in this scene they do not need to interact with one another.
+//~~~~~(Background)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+vec2 mapBackground( in vec3 p )
 {
-    // TODO: Arches are unlikely to interact with the rest of the scene significantly, so give them their own map for optimisation
-    return vec2(-1.0);
-}
-
-vec2 map( in vec3 p )
-{    
     vec2 res = vec2(1e10); // (Distance, Material)
-
-    // Rope
-    #ifdef RENDER_ROPE
-    float r_id;
-    res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
-    #endif
     
     // Pillars
     #ifdef RENDER_PILLARS
@@ -1045,99 +1100,28 @@ vec2 map( in vec3 p )
     return res; // returns (distance, material) pair.
 }
 
-// https://iquilezles.org/articles/normalsSDF
-vec3 calcNormal( in vec3 pos )
+vec3 calcNormalBackground( in vec3 pos )
 {
 #if 0
     vec2 e = vec2(1.0,-1.0)*0.5773;
     const float eps = 0.00025;
-    return normalize( e.xyy*map( pos + e.xyy*eps ).x + 
-					  e.yyx*map( pos + e.yyx*eps ).x + 
-					  e.yxy*map( pos + e.yxy*eps ).x + 
-					  e.xxx*map( pos + e.xxx*eps ).x );
+    return normalize( e.xyy*mapBackground( pos + e.xyy*eps ).x + 
+					  e.yyx*mapBackground( pos + e.yyx*eps ).x + 
+					  e.yxy*mapBackground( pos + e.yxy*eps ).x + 
+					  e.xxx*mapBackground( pos + e.xxx*eps ).x );
 #else
     // klems's trick to prevent the compiler from inlining map() 4 times
     vec3 n = vec3(0.0);
     for( int i=ZERO; i<4; i++ )
     {
         vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
-        n += e*map(pos+0.0005*e).x;
+        n += e*mapBackground(pos+0.0005*e).x;
     }
     return normalize(n);
-#endif    
+#endif
 }
 
-//--LIGHTING-----------------------------------------------------------------------------------------------------------------------
-float calcSSS( in vec3 pos, in vec3 nor )
-{
-    const int N_SAMPLES = 9;
-	float occ = 0.0;
-    for( int i=ZERO; i<N_SAMPLES; i++ )
-    {
-        float h = 0.002 + 0.11*float(i)/7.0;
-        vec3 dir = normalize( sin( float(i)*13.0 + vec3(0.0,2.1,4.2) ) );
-        dir *= sign(dot(dir,nor));
-        occ += (h-map(pos-h*dir).x);
-    }
-    occ = clamp( 1.0 - 11.0*occ/float(N_SAMPLES), 0.0, 1.0 );    
-    return occ*occ;
-}
-
-// https://iquilezles.org/articles/rmshadows
-// Soft Shadows with backtracking.
-float softShadow( in vec3 ro, in vec3 rd, float k )
-{
-    float res = 1.0;
-    float t = 0.01;
-    for( int i=ZERO; i<32; i++ )
-    {
-        float h = map(ro + rd*t).x;
-        res = min( res, smoothstep(0.0,1.0,k*h/t) );
-        //t += clamp( h, 0.0, 0.1 );
-        t += h;
-		//if( res<0.01 ) break;
-		if( abs(res)<0.01 ) break;
-    }
-    return clamp(res,0.0,1.0);
-}
-
-// https://www.shadertoy.com/view/ld3Gz2
-//  AO by (pseudo-random) sampling a number of distances to surfaces in a hemisphere about the normal
-float calcAO( in vec3 pos, in vec3 nor )
-{
-	float ao = 0.0;
-    for( int i=ZERO; i<int(AO_SAMPLES); i++ )
-    {
-        vec3 ap = forwardSF( float(i), AO_SAMPLES );
-        float h = hash1(float(i));
-		ap *= sign( dot(ap,nor) ) * h*0.1;
-        ao += clamp( map(pos + nor*0.01 + ap).x*3.0, 0.0, 1.0 );
-    }
-	ao /= AO_SAMPLES;
-	
-    return clamp( ao*6.0, 0.0, 1.0 );
-}
-
-// TODO: I don't think this object scales well with distance / object size.
-vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
-{
-    // Create an outline around objects within a certain radius around the sun.
-    //    The view direction dot product can be used to determine the radius.
-    //    Raymarching near misses are used to generate the outline. 
-    //   Then, a power curve is used to decay the outline based on distance from the edge of the sun.
-    float rd_dot_sun = dot(rd, normalize(_SunPos - ro));
-    
-    float angle_factor = 1.0 / (1.0 - _OutlineDotThreshold) * (max(0.0, rd_dot_sun - _OutlineDotThreshold));
-    angle_factor = pow(angle_factor, _OutlineRadialAttenuation);
-    
-    // It might be faster to check the dot threshold here when computing the outline if the attenuation power curve is expensive.
-    float a = step(0.001, d); // Stencil for non-edges
-    float b = clamp((d - _OutlineExtraThickness) / _OutlineMaxDist, 0.0, 1.0);
-    
-    return a * angle_factor * _OutlineCol * pow(1.0 - b, _OutlineAttenuation);
-}
-
-vec3 intersect( in vec3 ro, in vec3 rd )
+vec3 intersectBackground( in vec3 ro, in vec3 rd )
 {
     vec3 res = vec3(-1.0, 1e10, -1.0);
     
@@ -1150,26 +1134,170 @@ vec3 intersect( in vec3 ro, in vec3 rd )
         float t = max(tminmax.x,0.001);
         for( int i=0; i<RAYMARCH_MAX_STEPS && t<tminmax.y; i++ )
         {
-            vec2 h = map(ro+t*rd);
+            vec2 h = mapBackground(ro+t*rd);
             res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
             if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
-            t += h.x; // Coeff here is to try and avoid overshooting at the cost of performance
-                            //  TODO: There should be a much smarter solution than this. The problem only arises with large domain distortions.
+            t += h.x;
         }
     }
     
     return res; // t, nearest, mat_id
 }
 
+//~~~~~(Foreground)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+vec2 mapForeground( in vec3 p )
+{
+    vec2 res = vec2(1e10); // (Distance, Material)
+
+    // Rope
+    #ifdef RENDER_ROPE
+    float r_id;
+    res = MIN_MAT(res, sdShimenawa(p, 0.4615, 0.04, 10.0, r_id));
+    #endif
+               
+    return res; // returns (distance, material) pair.
+}
+
+vec3 calcNormalForeground( in vec3 pos )
+{
+#if 0
+    vec2 e = vec2(1.0,-1.0)*0.5773;
+    const float eps = 0.00025;
+    return normalize( e.xyy*mapForeground( pos + e.xyy*eps ).x + 
+					  e.yyx*mapForeground( pos + e.yyx*eps ).x + 
+					  e.yxy*mapForeground( pos + e.yxy*eps ).x + 
+					  e.xxx*mapForeground( pos + e.xxx*eps ).x );
+#else
+    // klems's trick to prevent the compiler from inlining map() 4 times
+    vec3 n = vec3(0.0);
+    for( int i=ZERO; i<4; i++ )
+    {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        n += e*mapForeground(pos+0.0005*e).x;
+    }
+    return normalize(n);
+#endif
+}
+
+vec3 intersectForeground( in vec3 ro, in vec3 rd )
+{
+    vec3 res = vec3(-1.0, 1e10, -1.0);
+    
+    // TODO: One bounding volume might not be enough for this whole scene.
+    //        Ideally could find a way to stop raymarching for specific objects without having to pass ro, rd into map()...
+    vec2 tminmax = iSphere( ro, rd, 0.75 );
+	if( tminmax.y>0.0 )
+    {
+        // raymarch
+        float t = max(tminmax.x,0.001);
+        for( int i=0; i<RAYMARCH_MAX_STEPS && t<tminmax.y; i++ )
+        {
+            vec2 h = mapForeground(ro+t*rd);
+            res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
+            if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
+            t += h.x;
+        }
+    }
+    
+    return res; // t, nearest, mat_id
+}
+
+//--LIGHTING-----------------------------------------------------------------------------------------------------------------------
+
+//~~~~~(Foreground)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+float calcSSS( in vec3 pos, in vec3 nor )
+{
+    const int N_SAMPLES = 9;
+	float occ = 0.0;
+    for( int i=ZERO; i<N_SAMPLES; i++ )
+    {
+        float h = 0.002 + 0.11*float(i)/7.0;
+        vec3 dir = normalize( sin( float(i)*13.0 + vec3(0.0,2.1,4.2) ) );
+        dir *= sign(dot(dir,nor));
+        occ += (h-mapForeground(pos-h*dir).x);
+    }
+    occ = clamp( 1.0 - 11.0*occ/float(N_SAMPLES), 0.0, 1.0 );    
+    return occ*occ;
+}
+
+// https://iquilezles.org/articles/rmshadows
+// Soft Shadows with backtracking.
+float softShadowForeground( in vec3 ro, in vec3 rd, float k )
+{
+    float res = 1.0;
+    float t = 0.01;
+    for( int i=ZERO; i<32; i++ )
+    {
+        float h = mapForeground(ro + rd*t).x;
+        res = min( res, smoothstep(0.0,1.0,k*h/t) );
+        //t += clamp( h, 0.0, 0.1 );
+        t += h;
+		//if( res<0.01 ) break;
+		if( abs(res)<0.01 ) break;
+    }
+    return clamp(res,0.0,1.0);
+}
+
+float calcAOForeground( in vec3 pos, in vec3 nor )
+{
+	float ao = 0.0;
+    for( int i=ZERO; i<int(AO_SAMPLES); i++ )
+    {
+        vec3 ap = forwardSF( float(i), AO_SAMPLES );
+        float h = hash1(float(i));
+		ap *= sign( dot(ap,nor) ) * h*0.1;
+        ao += clamp( mapForeground(pos + nor*0.01 + ap).x*3.0, 0.0, 1.0 );
+    }
+	ao /= AO_SAMPLES;
+	
+    return clamp( ao*6.0, 0.0, 1.0 );
+}
+
+//~~~~~(Background)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// https://iquilezles.org/articles/rmshadows
+// Soft Shadows with backtracking.
+float softShadowBackground( in vec3 ro, in vec3 rd, float k )
+{
+    float res = 1.0;
+    float t = 0.01;
+    for( int i=ZERO; i<32; i++ )
+    {
+        float h = mapBackground(ro + rd*t).x;
+        res = min( res, smoothstep(0.0,1.0,k*h/t) );
+        //t += clamp( h, 0.0, 0.1 );
+        t += h;
+		//if( res<0.01 ) break;
+		if( abs(res)<0.01 ) break;
+    }
+    return clamp(res,0.0,1.0);
+}
+
+// https://www.shadertoy.com/view/ld3Gz2
+//  AO by (pseudo-random) sampling a number of distances to surfaces in a hemisphere about the normal
+float calcAOBackground( in vec3 pos, in vec3 nor )
+{
+	float ao = 0.0;
+    for( int i=ZERO; i<int(AO_SAMPLES); i++ )
+    {
+        vec3 ap = forwardSF( float(i), AO_SAMPLES );
+        float h = hash1(float(i));
+		ap *= sign( dot(ap,nor) ) * h*0.1;
+        ao += clamp( mapBackground(pos + nor*0.01 + ap).x*3.0, 0.0, 1.0 );
+    }
+	ao /= AO_SAMPLES;
+	
+    return clamp( ao*6.0, 0.0, 1.0 );
+}
+
 //--MATERIALS----------------------------------------------------------------------------------------------------------------------
-vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m ) 
+vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m ) 
 {
     // TODO: Bridges and pillars should cast (relatively) sharp shadows on one another, so they need a separate map func.
     vec3 pos = ro + t*rd;
-    vec3 nor = calcNormal(pos);
+    vec3 nor = calcNormalForeground(pos);
     //float shadow = softShadow(pos - 0.01*rd, _LightDir, 2.0); // Soft
-    float shadow = softShadow(pos - 0.01*rd, _LightDir, 10.0); // Sharp
-    float occ = calcAO(pos, nor);
+    float shadow = softShadowForeground(pos - 0.01*rd, _LightDir, 10.0); // Sharp
+    float occ = calcAOForeground(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
     //shadow = (shadow + occ) / 2.0;
     //float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
@@ -1192,7 +1320,7 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
         // This simple SSS approximation is good enough for sun -> paper.
         float tr_range = t / 5.0;
         float view_bias = abs(dot(normalize(ro - pos), normalize(pos - _SunPos)));
-        float sun_transmission = map(pos + _LightDir * tr_range).x / tr_range;
+        float sun_transmission = mapForeground(pos + _LightDir * tr_range).x / tr_range;
         vec3 sss = 0.3*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
         
         vec3 base_shadow = mix(0.6*mat, _HorizonCol, 0.2);
@@ -1202,7 +1330,27 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
         //return vec3(occ);
         return sss + mix(base_shadow, mat, shadow);
     }
-    else if (CMP_MAT_LT(m, MAT_BRIDGE_STONE))
+    
+    vec3 col = vec3(0.0);
+    col = 0.5 + 0.5*nor;
+    //col = mix(vec3(0.0), col, shadow);
+
+    return 1.2*col;
+}
+
+vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m ) 
+{
+    // TODO: Bridges and pillars should cast (relatively) sharp shadows on one another, so they need a separate map func.
+    vec3 pos = ro + t*rd;
+    vec3 nor = calcNormalBackground(pos);
+    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 2.0); // Soft
+    float shadow = softShadowBackground(pos - 0.01*rd, _LightDir, 10.0); // Sharp
+    float occ = calcAOBackground(pos, nor);
+    shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
+    //shadow = (shadow + occ) / 2.0;
+    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
+    
+    if (CMP_MAT_LT(m, MAT_BRIDGE_STONE))
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
         vec3 base_shadow = mix(0.6*_MatBridgeStone, _HorizonCol, 0.15);
@@ -1239,8 +1387,6 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
         return mix(base_shadow, albedo, shadow);
     }
 
-
-    
     vec3 col = vec3(0.0);
     col = 0.5 + 0.5*nor;
     //col = mix(vec3(0.0), col, shadow);
@@ -1428,7 +1574,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
     start_t = -1.0;
 
     //const vec3 light_col = 100.0 * mix(vec3(0.65, 0.8, 1.0), _SunCol, 0.5);
-    const vec3 light_col = vec3(0.65, 0.8, 1.0) * 100.0;
+    const vec3 light_col = vec3(0.65, 0.8, 1.0) * _CloudLightIntensity;
     
     // raymarch
     for(int i = 0; i < CAMERA_RAY_STEPS; i++)
@@ -1451,7 +1597,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
             // Shadow casting onto the clouds is possible, but extremely expensive.
             //   This is even when approximating, as an exact shadow cast should compute the shadow on each light ray sample.
             #ifdef CLOUD_SHADOW_CAST
-            float shadow = softShadow(p, _LightDir, 10.0);
+            float shadow = softShadowBackground(p, _LightDir, 10.0);
             #else
             float shadow = 1.0;
             #endif
@@ -1486,12 +1632,24 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     vec3 col = sky(ro, rd);
 
     // --GEOMETRY-----------------------------------------------------------------
-    vec3 tm = intersect( ro, rd );
-    if( tm.x>0.0 )
+    // Foreground
+    vec3 f_tm = intersectForeground( ro, rd );
+    if( f_tm.x>0.0 )
     {
-        col = shade(ro, rd, tm.x, tm.z);
+        col = shadeForeground(ro, rd, f_tm.x, f_tm.z);
     }
-    col += sunSSSOutline(ro, rd, tm.y);
+    
+    vec3 min_tm = f_tm;
+    
+    // Background
+    vec3 b_tm = intersectBackground( ro, rd );
+    if ( b_tm.x>0.0 && (f_tm.x<0.0 || b_tm.x<f_tm.x) )
+    {
+        min_tm = b_tm;
+        col = shadeBackground(ro, rd, b_tm.x, b_tm.z);
+    }
+    
+    col += sunSSSOutline(ro, rd, min_tm.y);
     
     // --CLOUDS-------------------------------------------------------------------
     vec3 cloud_transmittance = vec3(1.0);    
@@ -1511,7 +1669,7 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     //float min_t = tm.x; // track smallest t for fog
     vec3 cloud_col = 0.5 * renderClouds( ro, rd, ray_offset, cloud_transmittance, cloud_t ); 
     
-    if ( tm.x < 0.0 || cloud_t < tm.x ) {
+    if ( min_tm.x < 0.0 || cloud_t < min_tm.x ) {
         //min_t = cloud_t;
         col = cloud_col + col * cloud_transmittance;
         //col = mix(cloud_col, col, cloud_transmittance);

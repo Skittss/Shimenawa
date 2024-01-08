@@ -65,7 +65,6 @@
 #define GT_BLACK_TIGHTNESS_CURVATURE 1.33
 #define GT_BLACK_TIGHTNESS_OFFSET 0.00
 
-
 // LDR (post-HDR effects)
 //#define GAMMA 1.0
 //#define GAMMA 2.2
@@ -78,19 +77,24 @@
 
 // Increasing max steps can help render objects at oblique angles
 #define RAYMARCH_MAX_STEPS 128
+#define BRIDGE_LOD_DIST 800.0;
 
 // Width of SSAA square (e.g. AA = 2 corresponds to 4x SSAA)
 #define AA 1
 #define AO_SAMPLES 64.0
 
 // Cloud settings
+//   Fast Raymarch
 #define CAMERA_RAY_STEPS 32
-#define  LIGHT_RAY_STEPS 10
+#define  LIGHT_RAY_STEPS 8
+//   Slow Raymarch
+//#define CAMERA_RAY_STEPS 64
+//#define  LIGHT_RAY_STEPS 12
 
 // Dithering (removes artifacts from discrete ray sampling as a result of large-ish step size)
 #define CLOUD_BLUE_NOISE
 
-// Shadow casting on the clouds is extremely slow. 
+// Cast shadows from the background -> the clouds. This is extremely slow. 
 //#define CLOUD_SHADOW_CAST
 
 //========================================================
