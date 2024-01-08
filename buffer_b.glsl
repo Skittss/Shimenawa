@@ -157,7 +157,7 @@ float getTextureForPoint(vec3 p, int type)
         float worleyFBM = worley0 * 0.625 + worley1 * 0.25 + worley2 * 0.125;
         res = remap(perlinNoise, 0.0, 1.0, worleyFBM, 1.0);
         
-	}else{
+	} else {
 
         //Worley
         float worley0 = worley(p, NUM_CELLS);
@@ -177,7 +177,8 @@ float getTextureForPoint(vec3 p, int type)
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    if(iFrame < 1 || length(texelFetch(iChannel0, ivec2(0), 0).rgba) == 0.0){
+    if(iFrame < 1 || length(texelFetch(iChannel0, ivec2(0), 0).rgba) == 0.0)
+    {
         vec3 col = vec3(0);
         //32 with 1 pixel on either side.
         float tileSize = 34.0;
@@ -188,53 +189,36 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         vec2 tile = floor((fragCoord.xy - 0.5) / tileSize);
 
         bool padCell = false;
-        if(mod(fragCoord.x, tileSize) == 0.5 || mod(fragCoord.x, tileSize) == tileSize - 0.5){
-            padCell = true;
-        }
-        if(mod(fragCoord.y, tileSize) == 0.5 || mod(fragCoord.y, tileSize) == tileSize - 0.5){
-            padCell = true;
-        }
+        if (mod(fragCoord.x, tileSize) == 0.5 || 
+            mod(fragCoord.x, tileSize) == tileSize - 0.5) padCell = true;
+        if (mod(fragCoord.y, tileSize) == 0.5 ||
+            mod(fragCoord.y, tileSize) == tileSize - 0.5) padCell = true;
 
         bool startPadX = false;
         bool endPadX = false;
         bool startPadY = false;
         bool endPadY = false;
 
-        if(fragCoord.x == tile.x * tileSize + 0.5){
-            startPadX = true;
-        }
-        if(fragCoord.y == tile.y * tileSize + 0.5){
-            startPadY = true;
-        }
-        if(fragCoord.x == (tile.x + 1.0) * tileSize - 0.5){
-            endPadX = true;
-        }
-        if(fragCoord.y == (tile.y + 1.0) * tileSize - 0.5){
-            endPadY = true;
-        }
+        if (fragCoord.x == tile.x * tileSize + 0.5) startPadX = true;
+        if (fragCoord.y == tile.y * tileSize + 0.5) startPadY = true;
+        if (fragCoord.x == (tile.x + 1.0) * tileSize - 0.5) endPadX = true;
+        if (fragCoord.y == (tile.y + 1.0) * tileSize - 0.5) endPadY = true;
 
         vec2 padding = vec2(2.0 * padWidth) * tile;
         vec2 pixel;
         vec2 uv;
         
-        if(!padCell){
+        if(!padCell)
+        {
             pixel = fragCoord.xy - padWidth - padding;
-            uv = vec2(pixel.xy/coreSize);
-        }else{
+            uv = vec2(pixel.xy / coreSize);
+        } else {
             pixel = fragCoord.xy - padWidth - padding;
-            if(startPadX){
-                pixel.x += coreSize;	
-            }
-            if(startPadY){
-                pixel.y += coreSize;	
-            }
-            if(endPadX){
-                pixel.x -= coreSize;	
-            }
-            if(endPadY){
-                pixel.y -= coreSize;	
-            }
-            uv = vec2(pixel.xy/coreSize);
+            if (startPadX) pixel.x += coreSize;	
+            if (startPadY) pixel.y += coreSize;	
+            if (endPadX)   pixel.x -= coreSize;	
+            if (endPadY)   pixel.y -= coreSize;	
+            uv = vec2(pixel.xy / coreSize);
         }
         
         vec3 p_ = get3Dfrom2D(uv, tileRows);

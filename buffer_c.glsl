@@ -44,7 +44,11 @@
     長いコンパイル時間にすみません。なるべく短くしようとしました。
     
 */
+//================================================================================================================================================
+//--Consts and Debug---------------------------------------------------------------------------------------------------------------
+#define ZERO (min(iFrame,0))
 
+// Mathematical Consts
 #define PHI 1.61803399
 #define PI  3.14159265
 #define TAU 6.28318533
@@ -58,6 +62,7 @@
 #define CAMERA_DIST 1.6
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
+// Debug Rendering settings
 //#define RENDER_ROPE
 //#define RENDER_PILLARS
 //#define RENDER_BRIDGES
@@ -72,9 +77,7 @@
 // Fast pillars are not reccommended (very broken).
 #define SLOWER_PILLARS 1
 
-#define ZERO (min(iFrame,0))
-
-// Bridge Construction Params
+//--Bridge Construction Params-----------------------------------------------------------------------------------------------------
 const float _BelowCloudBottom = 5.0;
 const float _CloudBottomExtra = 150.0; // For blending into the clouds.
 
@@ -115,14 +118,14 @@ const float _BridgeMiniStrutThickness = 0.075;
 const float _BridgeMiniStrut_Y_Extrusion = 0.05;
 const float _BridgeMiniStrut_Z_Extrusion = 0.07;
 
-// Infinite Bridge Construction Params
+//--Infinite Bridge Construction Params--------------------------------------------------------------------------------------------
 const float _BelowCloudBottomPillar = 10.0;
 
 const float _InfBridgeAnimSpeed = 0.3;
 const float _InfBridgeLowOffset = 8.0;
 const float _InfBridgeAnimSegLen = 6.0;
 
-// Pillar Construction Params
+//--Pillar Construction Params-----------------------------------------------------------------------------------------------------
 const float _PillarRoundness = 0.001;
 const float _PillarBevelRoundness = 0.01;
 const float _PillarBevelExtrusion = 0.1;
@@ -143,13 +146,13 @@ const float _LittlePillar_H = 1.0;
 const float _LittlePillar_R = 0.125;
 const float _LittlePillar_N = 3.0; // smaller numbers (generally odd) give better silhouettes across multiple viewing angles
 
-// Rope Params
+//--Rope Params--------------------------------------------------------------------------------------------------------------------
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
 const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5); // Smaller sub-waves
 const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim speed
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 
-// Cloud Params
+//--Cloud Params-------------------------------------------------------------------------------------------------------------------
 const vec3 _CloudSigmaS = vec3(1.0); // Scattering coeff
 //const vec3 _CloudSigmaS = vec3(1.0, 0.7, 0.7); // Scattering coeff
 const vec3 _CloudSigmaA = vec3(0.0); // Absorption coeff
@@ -161,22 +164,17 @@ const float _CloudTop = 10.0;
 const vec3  _CloudMinCorner = vec3(-_CloudWidth, _CloudBot, -_CloudWidth);
 const vec3  _CloudMaxCorner = vec3(_CloudWidth, _CloudTop, _CloudWidth);
 
-const float _CloudShapeSpeed = -5.0;
+const float _CloudDensityMultiplier = 0.075;
+
+const float _CloudShapeSpeed  = -5.0;
+const float _CloudShapeSize  = 0.05;
+const float _CloudShapeStrength  = 0.7;
+
 const float _CloudDetailSpeed = -10.0;
+const float _CloudDetailSize = 0.3;
+const float _CloudDetailStrength = 0.2;
 
-//const float shapeSpeed = -5.0;
-//const float detailSpeed = -10.0;
-
-const float power = 100.0;
-const float densityMultiplier = 0.075;
-
-const float shapeSize = 0.05;
-const float detailSize = 0.3;
-
-const float shapeStrength = 0.7;
-const float detailStrength = 0.2;
-
-// Materials
+//--Materials----------------------------------------------------------------------------------------------------------------------
 #define MAT_ROPE 1.0
 #define MAT_SHIDE 2.0
 #define MAT_SHIDE_SECONDARY 3.0
@@ -202,7 +200,7 @@ const vec3 _MatBridgeBrassSpe = 0.5*vec3(0.370, 0.840, 0.832);
 //const vec3 _MatBridgeBrassSpe = vec3(0.370, 0.840, 0.832);
 
 
-// Illumination
+//--Illumination-------------------------------------------------------------------------------------------------------------------
 const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
 //const vec3 _SunPos = vec3(0.2, 56, -40.1);
 
@@ -210,8 +208,15 @@ const vec3  _LightDir = normalize(_SunPos);
 
 //const vec3  _SunCol  = vec3(0.51471, 0.79919, 1.0);
 
-// Colour Schemes
-//==0: Sunset=============================================================================================
+const float _ZenithAttenuation = 1.8;
+const float _NadirAttenuation  = 1.2;
+const float _HorizonOffset = 0.0;
+
+const float _FogFrontRadius = 100.0;
+const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
+
+//--Colour Schemes-----------------------------------------------------------------------------------------------------------------
+//----0: Sunset----------------------------------------------------------------------------------------------------
 #if COLOUR_SCHEME == 0
 // Sun
 const float _SunSize = 3.5;
@@ -238,7 +243,7 @@ const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
 const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 
-//==1: Night==============================================================================================
+//----1: Night-----------------------------------------------------------------------------------------------------
 #if COLOUR_SCHEME == 1
 // Sun
 const float _SunSize = 3.0;
@@ -264,14 +269,7 @@ const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
 const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
 const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
-//========================================================================================================
-
-const float _ZenithAttenuation = 1.8;
-const float _NadirAttenuation  = 1.2;
-const float _HorizonOffset = 0.0;
-
-const float _FogFrontRadius = 100.0;
-const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
+//-----------------------------------------------------------------------------------------------------------------
 
 // SSS Sun Outline
 const vec3  _OutlineCol = _SunCol;
@@ -281,12 +279,11 @@ const float _OutlineMaxDist = 0.05;
 const float _OutlineAttenuation = 16.0;
 const float _OutlineExtraThickness = 0.0035;
 
+//==HELPER FUNCS==================================================================================================================================
 
-// Util
+// Material Selection Helper Funcs
 #define CMP_MAT_LT(a, b) a < (b + 0.5)
 #define CMP_MAT_GT(a, b) a > (b - 0.5)
-
-//==HELPER FUNC===================================================================================================================================
 
 // material comparisons
 vec2 MIN_MAT(vec2 a, vec2 b) { return (a.x < b.x) ? a : b; }
@@ -314,26 +311,20 @@ float henyeyGreenstein(float g, float costh)
 
 //==SDF===========================================================================================================================================
 
-//==SHIMENAWA=====================================================================================================================================
+//--Shimenawa----------------------------------------------------------------------------------------------------------------------
 float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
 {
-    // 紙垂 multiple zig-zag boxes
-    // 紙で作られているから、ちょっとSSS必要あり。
+    // 紙垂 (Shide) Multiple zig-zag boxes    
     
-    
-    // 全物体を４５C回る
+    // Rotate the whole thing 45c
     p.yz = (p.yz + vec2(p.z, -p.y))*sqrt(0.5); // Shortcut for 45-degrees rotation
 
-    // 大きさ
+    // Dimensions
     vec3 dim = 0.02 * vec3(0.03, 1.0, 2.0); // 2:1:0.1 ratio
     vec3 smallDim = dim;
     smallDim.y /= 2.0;
     smallDim.z *= 0.9;
-    
-    //vec3 shidePos = p - vec3(0.0, 1.5 * dim.y, 0.0);
-        
-    //shidePos += 0.1* sin(shidePos * 3.0 + iTime) * distToConnector;
-       
+           
     // 風から動きの準備
     // 垂直動きが欲しいので、回りの後でする。
     // 接続点から距離を使って動きの強さが決まる
@@ -341,22 +332,18 @@ float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
     float distToConnector = length(connectorPos - p);
 
     // Thinner box, mount to rope    
-    
     vec3 thinShidePos = p + vec3(.0, -1.5 * dim.y, 0.9 * dim.z);
-    // 動かす - Sinusoidal motion
+    // Sinusoidal motion for wind
     thinShidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id) * distToConnector;
     float d = sdBox(thinShidePos, smallDim);
     
-    // Zig-zag - domain repetition is a viable option here but I'm not sure how to
-    //   ensure the sdf remains correct when applying a stepwise shift in the domain
-    
+    // Rest of the zig-zag
     seg_id = 0.0;
     for (int i=0; i<s_n; i++)
     {
         vec3 shidePos = p + vec3(-5.0 * dim.x * mod(float(i+1), 2.0), 2.0 * dim.y * float(i), -dim.z * float(i));
         shidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id) * distToConnector;
         shidePos.x += _ShideWindParams_s.x * sin(distToConnector * _ShideWindParams_s.y + _ShideWindParams_s.z * iTime + 13.0 * sec_id) * distToConnector;
-        //d = min(d, sdBox(shidePos, dim));
         float d2 = sdBox(shidePos, dim);
         if (d2 < d) {d = d2; seg_id = float(i+1);}
     }
@@ -380,14 +367,14 @@ float sdKiraretanawa( in vec3 p, in float s, in float connectorOffset, in float 
     d = min(d, sdCappedCylinder(p, s * 0.06, s * 0.12) - s * 0.015);
     
     {
-    // 縛り縄 - Binding rope, 3 for cost of 1
+    // Binding rope, 3 for cost of 1
     vec3 q = p;
     q.y = abs(p.y + s * 0.02) - s * 0.0165; // XZ plane symmetry for duplication, and translate downwards
     q.y = abs(q.y) - s * 0.0165;
     d = min(d, sdTorus(q, vec2(s * 0.15, s * 0.013)));
     }
     
-    // 接続縄 - Connecting rope
+    // Connecting rope
     d = min(d, sdCappedCylinder(p - vec3(0.0, connectorOffset/2.0, 0.0), connectorOffset, s * 0.013));
     
     return d;
@@ -422,7 +409,6 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     
     //p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
     
-    #if 1
     // Swirly Rope
     if (dRing < 0.8) // approx bounding ring
     {    
@@ -431,10 +417,8 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
         vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
         res = vec2(sdSwirl(ring_uv, r, c, f, id), MAT_ROPE);
     }
-    #endif
     
     // Shide
-    #if 1
     {
     vec3 q = p;
     const float an = TAU/7.0;
@@ -446,10 +430,8 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     float shide_mat = (mod(seg_id, 2.0) == 0.0) ? MAT_SHIDE : MAT_SHIDE + 1.0;
     res = MIN_MAT(res, vec2(d, shide_mat));
     }
-    #endif
     
     // Cut Ropes
-    #if 1
     {
     // TODO: This rotation is horrendously jank - I *should* fix it.
     vec3 q_s = p;
@@ -465,36 +447,12 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     float d = sdKiraretanawa(q_s - vec3(r, -1.4*c, 0.0), 0.14, 0.05, sector+1.0);
     res = MIN_MAT(res, vec2(d, MAT_ROPE));
     }
-    #endif
     
     res.x *= 0.8; // Deal with messed up SDF T^T
     return res;
 }
 
-float sdBark( in vec3 p, in float h, in float r, in float d, in float w, in float n, in float phase)
-{
-    float angle = TAU / n;
-    float sector = round(atan(p.z, p.x)/angle);
-    vec3 q = p;
-    float an = sector * angle + phase;
-    q.xz = mat2(cos(an), -sin(an),
-                sin(an), cos(an)) * q.xz;
-                
-    return sdBox(q-vec3(r, 0.0, 0.01*cos(50.0*q.y)), vec3(w, h, d)) - 0.001;
-}
-
-vec2 sdTree( in vec3 p, in float h, in float r )
-{
-    float m = -1.0;
-
-    float db = sdBark(p, h, r, 0.0025, 0.005, 24.0, 0.0);
-    db = min(db, sdBark(p, h, r, 0.001, 0.005, 12.0, 0.17));
-    float dTree = sdCappedCylinder(p, h, r) - 0.001;
-    
-    return vec2(min(dTree, db), m);
-}
-
-//==PILLARS=======================================================================================================================================
+//--Pillars------------------------------------------------------------------------------------------------------------------------
 vec2 sdPillarSeg( 
     in vec3 p, in float r, in float seg_h,
     in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars )
@@ -696,7 +654,7 @@ vec2 sdPillars( in vec3 p )
     //return sdPillar(p + vec3(0.0, 0.0, 0.0), 3.0, 1.0, 1.0);
 }
 
-//==BRIDGES=======================================================================================================================================
+//--Bridges------------------------------------------------------------------------------------------------------------------------
 vec2 sdBridgeStrut( in vec3 strut_base, in float h) 
 {
     vec2 res = vec2(1e10);
@@ -974,7 +932,6 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
 }
 
 //==ILLUMINATION================================================================================================================================
-
 vec3 sky( in vec3 ro, in vec3 rd ) 
 {
     // Make sun always appear as if viewed from a certain point to deal with the fact it
@@ -1015,6 +972,7 @@ vec3 fog( in vec3 col, in float t, in vec3 rd )
 
 //==RENDERING===================================================================================================================================
 
+//--GEOMETRY-----------------------------------------------------------------------------------------------------------------------
 vec2 mapBg( in vec3 p )
 {
     // TODO: Arches are unlikely to interact with the rest of the scene significantly, so give them their own map for optimisation
@@ -1024,11 +982,7 @@ vec2 mapBg( in vec3 p )
 vec2 map( in vec3 p )
 {    
     vec2 res = vec2(1e10); // (Distance, Material)
-    
-    #if 0
-    res = sdTree(p, 0.40, 0.40);
-    #endif
-    
+
     // Rope
     #ifdef RENDER_ROPE
     float r_id;
@@ -1113,6 +1067,7 @@ vec3 calcNormal( in vec3 pos )
 #endif    
 }
 
+//--LIGHTING-----------------------------------------------------------------------------------------------------------------------
 float calcSSS( in vec3 pos, in vec3 nor )
 {
     const int N_SAMPLES = 9;
@@ -1130,7 +1085,7 @@ float calcSSS( in vec3 pos, in vec3 nor )
 
 // https://iquilezles.org/articles/rmshadows
 // Soft Shadows with backtracking.
-float softShadowBacktrack( in vec3 ro, in vec3 rd, float k )
+float softShadow( in vec3 ro, in vec3 rd, float k )
 {
     float res = 1.0;
     float t = 0.01;
@@ -1206,13 +1161,14 @@ vec3 intersect( in vec3 ro, in vec3 rd )
     return res; // t, nearest, mat_id
 }
 
+//--MATERIALS----------------------------------------------------------------------------------------------------------------------
 vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m ) 
 {
     // TODO: Bridges and pillars should cast (relatively) sharp shadows on one another, so they need a separate map func.
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormal(pos);
-    //float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 2.0); // Soft
-    float shadow = softShadowBacktrack(pos - 0.01*rd, _LightDir, 10.0); // Sharp
+    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 2.0); // Soft
+    float shadow = softShadow(pos - 0.01*rd, _LightDir, 10.0); // Sharp
     float occ = calcAO(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
     //shadow = (shadow + occ) / 2.0;
@@ -1292,6 +1248,7 @@ vec3 shade( in vec3 ro, in vec3 rd, in float t, in float m )
     return 1.2*col;
 }
 
+//--CLOUDS-------------------------------------------------------------------------------------------------------------------------
 vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_size)
 {
     vec3 li = vec3(0.0);
@@ -1389,8 +1346,8 @@ float mapCloudDensity(in vec3 p, out float cloudHeight)
     p += vec3(_CloudShapeSpeed * iTime);
     
     //Get main shape noise, invert and scale it.
-    float shape = 1.0-getPerlinWorleyNoise(shapeSize * p);
-    shape *= shapeStrength;
+    float shape = 1.0-getPerlinWorleyNoise(_CloudShapeSize * p);
+    shape *= _CloudShapeStrength;
 
     //Carve away density from cloud based on noise.
     cloud = saturate(remap(cloud, shape, 1.0, 0.0, 1.0));
@@ -1401,12 +1358,12 @@ float mapCloudDensity(in vec3 p, out float cloudHeight)
     //Animate details.
     p += vec3(_CloudDetailSpeed * iTime, 0.0, 0.5 * _CloudDetailSpeed * iTime);
     
-    float detail = getPerlinWorleyNoise(detailSize * p);
-	detail *= detailStrength;
+    float detail = getPerlinWorleyNoise(_CloudDetailSize * p);
+	detail *= _CloudDetailStrength;
     
 	//Carve away detail based on the noise
 	cloud = saturate(remap(cloud, detail, 1.0, 0.0, 1.0));
-    return densityMultiplier * cloud;
+    return _CloudDensityMultiplier * cloud;
 }
 
 vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi ) 
@@ -1492,9 +1449,9 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
             //vec3 ambient = vec3(1.0);
             
             // Shadow casting onto the clouds is possible, but extremely expensive.
-            //   This is even when approximating, as an exact shadow cast should compute the shadow on each *light ray* sample.
+            //   This is even when approximating, as an exact shadow cast should compute the shadow on each light ray sample.
             #ifdef CLOUD_SHADOW_CAST
-            float shadow = softShadowBacktrack(p, _LightDir, 10.0);
+            float shadow = softShadow(p, _LightDir, 10.0);
             #else
             float shadow = 1.0;
             #endif
@@ -1522,6 +1479,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
     return col;
 }
 
+//--CAMERA & RAYMARCHING-----------------------------------------------------------------------------------------------------------
 vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord ) 
 {
     // --SKY----------------------------------------------------------------------
