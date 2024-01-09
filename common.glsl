@@ -95,7 +95,7 @@
 // Dithering (removes artifacts from discrete ray sampling as a result of large-ish step size)
 #define CLOUD_BLUE_NOISE
 
-// Cast shadows from the background -> the clouds. This is extremely slow. 
+// Cast shadows from the background -> the clouds. Very pretty!!! but extremely slow. 
 //#define CLOUD_SHADOW_CAST
 
 //========================================================
