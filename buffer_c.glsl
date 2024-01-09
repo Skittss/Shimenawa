@@ -74,9 +74,9 @@
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Debug Rendering settings
-#define RENDER_ROPE
+//#define RENDER_ROPE
 #define RENDER_PILLARS
-#define RENDER_BRIDGES
+//#define RENDER_BRIDGES
 #define RENDER_CLOUDS
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
@@ -142,7 +142,7 @@ const float _InfBridgeAnimSegLen = 6.0;
 const float _PillarRoundness = 0.001;
 const float _PillarBevelRoundness = 0.01;
 const float _PillarBevelExtrusion = 0.1;
-const float _PillarBevelHeight = 0.075;
+const float _PillarBevelHeight = 0.5*0.075;
 const float _PillarBevelNRep = 4.0;
 
 const float _PillarVBevelExtrusion = 0.05;
@@ -166,8 +166,8 @@ const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim sp
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
 
 //--Cloud Params-------------------------------------------------------------------------------------------------------------------
-const vec3 _CloudSigmaS = vec3(1.0); // Scattering coeff
-//const vec3 _CloudSigmaS = vec3(1.0, 0.7, 0.7); // Scattering coeff
+const vec3 _CloudSigmaS = vec3(1.0); // Inscattering coeff
+//const vec3 _CloudSigmaS = vec3(1.0, 0.7, 0.7); // Inscattering coeff
 const vec3 _CloudSigmaA = vec3(0.0); // Absorption coeff
 const vec3 _CloudSigmaE = max(_CloudSigmaS + _CloudSigmaA, vec3(1e-6)); // Extinction coeff
 
@@ -223,11 +223,9 @@ const vec3  _LightDir = normalize(_SunPos);
 
 //const vec3  _SunCol  = vec3(0.51471, 0.79919, 1.0);
 
-const float _ZenithAttenuation = 1.8;
-const float _NadirAttenuation  = 1.2;
 const float _HorizonOffset = 0.0;
 
-const float _FogFrontRadius = 100.0;
+const float _FogDistBias = 800.0;
 const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
 
 //--Colour Schemes-----------------------------------------------------------------------------------------------------------------
@@ -244,7 +242,14 @@ const float _SunHaloRadius = 3.0;
 const vec3 _ZenithCol = 0.5 * vec3(0.37, 0.14, 0.43);
 const vec3 _HorizonCol = 1.5 * vec3(0.36, 0.17, 0.66);
 const vec3 _NadirCol = vec3(0.35, 0.32, 0.8);
-const vec3 _FogColour = _HorizonCol;
+
+const float _ZenithAttenuation = 1.8;
+const float _NadirAttenuation  = 1.2;
+
+// Fog
+const vec3  _FogColour = _HorizonCol;
+const float _FogSunIntensity = 0.15;
+const float _FogSunAttenuation = 18.0;
 
 // Materials
 const vec3 _MatRope = 0.60*vec3(0.95, 0.89, 0.74);
@@ -269,9 +274,16 @@ const float _SunHaloRadius = 2.0;
 
 // Atmosphere
 const vec3 _ZenithCol = 0.02 * vec3(0.32, 0.65, 1.0);
-const vec3 _HorizonCol = 0.04 * vec3(0.32, 0.65, 1.0);
+const vec3 _HorizonCol = 0.08 * vec3(0.32, 0.65, 1.0);
 const vec3 _NadirCol = 0.02 * vec3(0.32, 0.65, 1.0);
-const vec3 _FogColour = _HorizonCol;
+
+const float _ZenithAttenuation = 8.8;
+const float _NadirAttenuation  = 0.2;
+
+// Fog
+const vec3  _FogColour = _HorizonCol;
+const float _FogSunIntensity = 0.22;
+const float _FogSunAttenuation = 18.0;
 
 // Materials
 const vec3 _MatRope = 0.80*vec3(0.89, 0.631, 0.341);
@@ -480,6 +492,7 @@ vec2 sdPillarSeg(
     float rs_PillarCapExtrusion = rs*_PillarCapExtrusion;
     float rs_LittlePillar_H = rs*_LittlePillar_H;
     float rs_LittlePillar_R = rs*_LittlePillar_R;
+    float rs_PillarBevelHeight = rs*_PillarBevelHeight;
     float rs_PillarBevelExtrusion = rs*_PillarBevelExtrusion;
     float rs_PillarVBevelExtrusion = rs*_PillarVBevelExtrusion;
     float rs_PillarVBevelThickness = rs*_PillarVBevelThickness;
@@ -490,7 +503,7 @@ vec2 sdPillarSeg(
     float pillar_height = seg_h - 0.5*rs_PillarCapHeight;
     
     // Bounding Volume (Exact Cylinder)
-    float d = sdCappedCylinder(p, 2.0*(seg_h + rs_LittlePillar_H) + rs_PillarCapHeight + _PillarBevelHeight, r + rs_PillarCapExtrusion);
+    float d = sdCappedCylinder(p, 2.0*(seg_h + rs_LittlePillar_H) + rs_PillarCapHeight + rs_PillarBevelHeight, r + rs_PillarCapExtrusion);
     if (d > 1.0) return vec2(d, 1e10);
     
     // big cylinder
@@ -507,7 +520,7 @@ vec2 sdPillarSeg(
     float rep_id = clamp(round((q.y / interval)), 0.0, seg_n_sep);
     q.y -= rep_id * interval;
     res = MIN_MAT(res, vec2(
-        sdCappedCylinder(q, _PillarBevelHeight, r + rs_PillarBevelExtrusion) - _PillarBevelRoundness,
+        sdCappedCylinder(q, rs_PillarBevelHeight, r + rs_PillarBevelExtrusion) - _PillarBevelRoundness,
         MAT_PILLAR_GOLD
     ));
     }
@@ -617,7 +630,7 @@ vec2 sdPillars( in vec3 p )
     
     // Early exit on maximum extent for opt (no more pillars beyond this point so raymarch accuracy not affected)
     //   Also early exit when y drops below a certain level (i.e. we are in dense cloud)
-    if (len_base_id > ext_max || p.y < 50.0 ) return vec2(1e10);
+    if (len_base_id > ext_max || p.y < 20.0 ) return vec2(1e10);
     
     #if SLOWER_PILLARS
     for (int i=-1; i<2; i++)
@@ -660,6 +673,7 @@ vec2 sdPillars( in vec3 p )
     
     }
     
+    // TODO: This is not actually id-based but good enough to not be noticeable in most cases
     res.x = max(res.x, abs(len_base_id - ring_rad) - ring_thickness);
     
     return res;
@@ -986,9 +1000,11 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
     return res;
 }
 
-//==ILLUMINATION================================================================================================================================
+//==ATMOSPHERE==================================================================================================================================
 vec3 stars( in vec3 ro, in vec3 rd )
 {
+    // Generate spherical coords for stars
+    
     return vec3(0.0);
 }
 
@@ -1027,11 +1043,13 @@ vec3 sky( in vec3 ro, in vec3 rd )
 
 vec3 fog( in vec3 col, in float t, in vec3 rd )
 {
-    float amt = 1.0 - exp(-t/2500.0);
-    float sun_factor = max(dot(rd, _LightDir), 0.0);
+    float amt = 1.0 - exp(-t/_FogDistBias);
     
-    //return col;
-    return mix(col, _FogColour, amt);
+    // Add some light scattering from the sun
+    float sun_factor = max(dot(rd, _LightDir), 0.0);
+    vec3 fog_col = mix( _FogColour, _FogSunIntensity*_SunCol, pow(sun_factor, _FogSunAttenuation) );
+    
+    return mix(col, fog_col, amt);
 }
 
 // TODO: I don't think this object scales well with distance / object size.
@@ -1668,17 +1686,17 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     #endif
     
     float cloud_t;
-    //float min_t = tm.x; // track smallest t for fog
+    float min_t = min_tm.x; // track smallest t for fog
     vec3 cloud_col = 0.5 * renderClouds( ro, rd, ray_offset, cloud_transmittance, cloud_t ); 
     
-    if ( min_tm.x < 0.0 || cloud_t < min_tm.x ) {
-        //min_t = cloud_t;
+    if ( min_tm.x < 0.0 || (cloud_t > 0.0 && cloud_t < min_tm.x) ) {
+        min_t = cloud_t;
         col = cloud_col + col * cloud_transmittance;
         //col = mix(cloud_col, col, cloud_transmittance);
     }
     #endif
     
-    //col = fog(col, min_t, rd);
+    col = fog(col, min_t, rd);
     return col;
 }
 
