@@ -196,7 +196,9 @@ const float _CloudLightIntensity = 100.0;
 #define MAT_BRIDGE_STONE 4.0
 #define MAT_BRIDGE_BRASS 5.0
 #define MAT_PILLAR_STONE 6.0
-#define MAT_PILLAR_GOLD  7.0
+#define MAT_PILLAR_STONE_ALT 7.0
+#define MAT_PILLAR_GOLD  8.0
+#define MAT_PILLAR_GOLD_ALT 9.0
 #define MAT_DEBUG 10000.0
 
 //const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
@@ -259,7 +261,8 @@ const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.412, 0.412);
 
 const vec3 _MatPillarStone = 0.8*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
+const vec3 _MatPillarStoneAlt = 0.8*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneAltFre = vec3(0.471, 0.737, 0.941);
 const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 
@@ -293,7 +296,8 @@ const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = vec3(1.0, 1.0, 1.0);
 
 const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneFre = vec3(0.471, 0.737, 0.941);
+const vec3 _MatPillarStoneAlt = 0.4*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneAltFre = 1.45*vec3(0.00, 0.243, 0.502);
 const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 //-----------------------------------------------------------------------------------------------------------------
@@ -624,10 +628,10 @@ vec2 sdPillars( in vec3 p )
     vec2 res = vec2(1e10);
     
     //return sdPillar(p, 0.0, 3.0, 4.3, 4.0, 16.0, 3.0 );
-        
+       
     vec2 base_id = round(p.xz / spacing);
     float len_base_id = length(base_id);
-    
+        
     // Early exit on maximum extent for opt (no more pillars beyond this point so raymarch accuracy not affected)
     //   Also early exit when y drops below a certain level (i.e. we are in dense cloud)
     if (len_base_id > ext_max || p.y < 20.0 ) return vec2(1e10);
@@ -643,9 +647,13 @@ vec2 sdPillars( in vec3 p )
     
     vec2 id = base_id + vec2(i, j);
     float len_id = length(id);
+    
+    // Cull pillars outside of ring
+    if (len_id > ext_max) continue;
+    
     float id_hash1 = hash1(id);
     float id_hash2 = hash2(id);
-    
+        
     // Near and far heights - for a dynamic scene, make further away pillars *considerably* larger.
     float far = step(ring_rad, len_id);
     
@@ -667,14 +675,22 @@ vec2 sdPillars( in vec3 p )
     q.xz += 0.53 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
     q.y += h_offset;
 
+    // Colour some pillars with alt colour scheme
+    bool alt = quick_hash3 > 0.59 && quick_hash3 < 0.67;
+    float rad_mult = (alt) ? 0.58 : 0.8;
+
+    vec2 tile_res = sdPillar(q, nseg, rad_mult*height, 3.0*height, 4.0, 16.0, n_pillar);
+    if (alt) tile_res.y++;
+
     //res = MIN_MAT( res, sdPillar(q, 2.0, height, 4.3, 4.0, 16.0, 3.0 ) );
-    res = MIN_MAT( res, sdPillar(q, nseg, 0.8*height, 3.0*height, 4.0, 16.0, n_pillar ) );
+    res = MIN_MAT( res, tile_res );
     //res = MIN_MAT(res, vec2(sdCappedCylinder(q+vec3(0.0, _BelowCloudBottomPillar - height, 0.0), height, height / 4.3), MAT_PILLAR_STONE));
     
     }
     
     // TODO: This is not actually id-based but good enough to not be noticeable in most cases
     res.x = max(res.x, abs(len_base_id - ring_rad) - ring_thickness);
+    
     
     return res;
 
@@ -1394,7 +1410,17 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
         vec3 albedo = _MatPillarStone + fre *_SunCol * _SunBrightness;
         return mix(base_shadow, albedo, shadow);
     }
-    else if (CMP_MAT_LT(m, MAT_PILLAR_GOLD))
+    else if (CMP_MAT_LT(m, MAT_PILLAR_STONE_ALT))
+    {
+        float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
+        vec3 base_shadow = mix(0.5*_MatPillarStoneAlt, _HorizonCol, 0.15);
+        vec3 albedo = mix(base_shadow, _MatPillarStoneAlt, shadow);
+        
+        return mix(albedo, _MatPillarStoneAltFre, fre);
+        //+ fre *_MatPillarStoneAltFre * _SunBrightness;
+        return mix(base_shadow, albedo, shadow);
+    }
+    else if (CMP_MAT_LT(m, MAT_PILLAR_GOLD_ALT)) // Covers both alt and non-alt mats.
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
         float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
