@@ -46,10 +46,8 @@
 */
 
 // TODO:
-//   - Fog
 //   - Stars
-//   - Alt. Colour schemes
-//   - Pillars are currently the most expensive part of the scene due to lots of complex domain repetition.
+//   - Pillars are currently the most expensive part of the scene due to lots of domain repetition.
 //        There ends up being 8x more work done than usual to ensure the correctness of the SDF.
 //        Even with LOD to basic cylinders, the framerate remains low, so it would be best to tackle making
 //        the domain repetition more efficient - but I haven't had time to do so. Comparing only the neighbours
@@ -206,7 +204,8 @@ const float _CloudLightIntensity = 100.0;
 //const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
 
 //const vec3 _MatBridgeStone = 2.0*vec3(0.361, 0.329, 0.370);
-const vec3 _MatBridgeStone = 0.5*vec3(0.361, 0.329, 0.370);
+const vec3 _MatBridgeStone = 0.35*vec3(0.361, 0.329, 0.370);
+const vec3 _MatBridgeStoneFre = 1.85*vec3(0.00, 0.243, 0.502);
 
 //const vec3 _MatBridgeBrass = vec3(0.940, 0.841, 0.517);
 
@@ -626,15 +625,13 @@ vec2 sdPillars( in vec3 p )
     const float ext_max = ring_rad + ring_thickness;
     
     vec2 res = vec2(1e10);
-    
-    //return sdPillar(p, 0.0, 3.0, 4.3, 4.0, 16.0, 3.0 );
-       
+           
     vec2 base_id = round(p.xz / spacing);
     float len_base_id = length(base_id);
         
     // Early exit on maximum extent for opt (no more pillars beyond this point so raymarch accuracy not affected)
     //   Also early exit when y drops below a certain level (i.e. we are in dense cloud)
-    if (len_base_id > ext_max || p.y < 20.0 ) return vec2(1e10);
+    if (len_base_id > ext_max || p.y < 20.0 || p.y > 500.0 ) return vec2(1e10);
     
     #if SLOWER_PILLARS
     for (int i=-1; i<2; i++)
@@ -682,9 +679,7 @@ vec2 sdPillars( in vec3 p )
     vec2 tile_res = sdPillar(q, nseg, rad_mult*height, 3.0*height, 4.0, 16.0, n_pillar);
     if (alt) tile_res.y++;
 
-    //res = MIN_MAT( res, sdPillar(q, 2.0, height, 4.3, 4.0, 16.0, 3.0 ) );
     res = MIN_MAT( res, tile_res );
-    //res = MIN_MAT(res, vec2(sdCappedCylinder(q+vec3(0.0, _BelowCloudBottomPillar - height, 0.0), height, height / 4.3), MAT_PILLAR_STONE));
     
     }
     
@@ -1379,7 +1374,7 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormalBackground(pos);
     //float shadow = softShadow(pos - 0.01*rd, _LightDir, 2.0); // Soft
-    float shadow = softShadowBackground(pos - 0.01*rd, _LightDir, 10.0); // Sharp
+    float shadow = softShadowBackground(pos - 0.01*rd, _LightDir, 15.0); // Sharp
     float occ = calcAOBackground(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
     //shadow = (shadow + occ) / 2.0;
@@ -1389,14 +1384,21 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
         vec3 base_shadow = mix(0.6*_MatBridgeStone, _HorizonCol, 0.15);
-        vec3 albedo = _MatBridgeStone + fre *_SunCol * _SunBrightness;
+        vec3 albedo = _MatBridgeStone + fre *_MatBridgeStoneFre + dot(_LightDir, nor) * _SunCol * 0.15;
         return mix(base_shadow, albedo, shadow);
     }
     else if (CMP_MAT_LT(m, MAT_BRIDGE_BRASS))
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
-        float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
-        ref = smoothstep(0.7, 0.8, ref);
+        
+        float ref = dot(rd, reflect(_LightDir, nor));
+        ref = smoothstep(0.5, 0.6, ref);
+        //ref = smoothstep(0.7, 0.8, ref);
+
+        //float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
+        //ref = smoothstep(0.7, 0.8, ref);
+        
+        
         vec3 base_shadow = mix(0.6*_MatBridgeBrass, _HorizonCol, 0.15);
         vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
         //vec3 albedo = _MatBridgeBrass + fre * (2.0 * _SunCol * _SunBrightness) + ref * _MatBridgeBrassSpe;
@@ -1407,7 +1409,7 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
         vec3 base_shadow = mix(0.6*_MatPillarStone, _HorizonCol, 0.15);
-        vec3 albedo = _MatPillarStone + fre *_SunCol * _SunBrightness;
+        vec3 albedo = _MatPillarStone + fre *_SunCol * _SunBrightness + _SunCol * 0.1 * dot(nor, _LightDir);
         return mix(base_shadow, albedo, shadow);
     }
     else if (CMP_MAT_LT(m, MAT_PILLAR_STONE_ALT))
