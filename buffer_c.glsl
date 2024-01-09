@@ -47,12 +47,6 @@
 
 // TODO:
 //   - Stars
-//   - Pillars are currently the most expensive part of the scene due to lots of domain repetition.
-//        There ends up being 8x more work done than usual to ensure the correctness of the SDF.
-//        Even with LOD to basic cylinders, the framerate remains low, so it would be best to tackle making
-//        the domain repetition more efficient - but I haven't had time to do so. Comparing only the neighbours
-//        closer to the camera would probably improve it 2x, but may mess up shadows (particularly cloud shadow casting)
-//        as a result. Any other suggestions are welcome c:
 //================================================================================================================================================
 //--Consts and Debug---------------------------------------------------------------------------------------------------------------
 #define ZERO (min(iFrame,0))
@@ -72,9 +66,9 @@
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Debug Rendering settings
-//#define RENDER_ROPE
+#define RENDER_ROPE
 #define RENDER_PILLARS
-//#define RENDER_BRIDGES
+#define RENDER_BRIDGES
 #define RENDER_CLOUDS
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
@@ -600,7 +594,7 @@ vec2 sdPillar(
     return res;
 }
 
-vec2 sdPillars( in vec3 p )
+vec2 sdPillars( in vec3 p, in vec3 ro )
 {
     // TODO: Make pillar field interesting by modifying certain parameters 
     //    - Bottom offset between 0 -> 1 * h (so pillars have 'phase')
@@ -633,16 +627,18 @@ vec2 sdPillars( in vec3 p )
     //   Also early exit when y drops below a certain level (i.e. we are in dense cloud)
     if (len_base_id > ext_max || p.y < 20.0 || p.y > 500.0 ) return vec2(1e10);
     
+    vec2 o = -sign(ro.xz - spacing * base_id); // cut down on the amount of neighbour comparisons
+    
     #if SLOWER_PILLARS
-    for (int i=-1; i<2; i++)
-    for (int j=-1; j<2; j++)
+    for (int i=0; i<2; i++)
+    for (int j=0; j<2; j++)
     {
     #else
     {
     int i = 0; int j = 0;
     #endif 
     
-    vec2 id = base_id + vec2(i, j);
+    vec2 id = base_id + o*vec2(i, j);
     float len_id = length(id);
     
     // Cull pillars outside of ring
@@ -669,7 +665,7 @@ vec2 sdPillars( in vec3 p )
     vec3 q = p;
     q.xz = p.xz - spacing * id;
     q.xz *= rot(id_hash1 * 2.0 * PI);
-    q.xz += 0.53 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0)));
+    q.xz += 0.40 * spacing * (sin(131.5 * id.x + 13.8 * id.y + vec2(1.5, 0.0))); // any more spacing than this and the SDF will implode
     q.y += h_offset;
 
     // Colour some pillars with alt colour scheme
@@ -1088,13 +1084,13 @@ vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 // Note: Splitting SDF & Lighting calculations into fg / bg makes performance and compile time better as 
 //            in this scene they do not need to interact with one another.
 //~~~~~(Background)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-vec2 mapBackground( in vec3 p )
+vec2 mapBackground( in vec3 p, in vec3 ro )
 {
     vec2 res = vec2(1e10); // (Distance, Material)
     
     // Pillars
     #ifdef RENDER_PILLARS
-    res = MIN_MAT(res, sdPillars(p + vec3(0.0, _CloudBottomExtra, 0.0)));
+    res = MIN_MAT(res, sdPillars(p + vec3(0.0, _CloudBottomExtra, 0.0), ro));
     #endif
     
     // Bridge Segment
@@ -1155,7 +1151,8 @@ vec3 calcNormalBackground( in vec3 pos )
     for( int i=ZERO; i<4; i++ )
     {
         vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
-        n += e*mapBackground(pos+0.0005*e).x;
+        vec3 q = pos + 0.0005*e;
+        n += e*mapBackground(q, q).x;
     }
     return normalize(n);
 }
@@ -1173,7 +1170,7 @@ vec3 intersectBackground( in vec3 ro, in vec3 rd )
         float t = max(tminmax.x,0.001);
         for( int i=0; i<RAYMARCH_MAX_STEPS && t<tminmax.y; i++ )
         {
-            vec2 h = mapBackground(ro+t*rd);
+            vec2 h = mapBackground(ro+t*rd, ro);
             res.y = max(min(res.y, h.x), 0.0); // Track near misses for strong light outine
             if( abs(h.x)<0.001 ) { res=vec3(t, res.y, h.y); break; }
             t += h.x;
@@ -1292,7 +1289,7 @@ float softShadowBackground( in vec3 ro, in vec3 rd, float k )
     float t = 0.01;
     for( int i=ZERO; i<32; i++ )
     {
-        float h = mapBackground(ro + rd*t).x;
+        float h = mapBackground(ro + rd*t, ro).x;
         res = min( res, smoothstep(0.0,1.0,k*h/t) );
         //t += clamp( h, 0.0, 0.1 );
         t += h;
@@ -1312,7 +1309,8 @@ float calcAOBackground( in vec3 pos, in vec3 nor )
         vec3 ap = forwardSF( float(i), AO_SAMPLES );
         float h = hash1(float(i));
 		ap *= sign( dot(ap,nor) ) * h*0.1;
-        ao += clamp( mapBackground(pos + nor*0.01 + ap).x*3.0, 0.0, 1.0 );
+        vec3 q = pos+nor*0.01 + ap;
+        ao += clamp( mapBackground(q, q).x*3.0, 0.0, 1.0 );
     }
 	ao /= AO_SAMPLES;
 	
