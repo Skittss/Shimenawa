@@ -57,6 +57,7 @@
 #define TAU 6.28318533
 
 // Debug (Orbital Mouse Controls) camera settings
+//    Feel free to take a look around the scene from a different view ^^
 #define USE_DEBUG_CAMERA
 #define DEBUG_CAMERA_DIST 1.0
 #define DEBUG_CAMERA_TARGET vec3(0.0, 0.0, 0.0)
@@ -66,9 +67,9 @@
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Debug Rendering settings
-#define RENDER_ROPE
+//#define RENDER_ROPE
 #define RENDER_PILLARS
-#define RENDER_BRIDGES
+//#define RENDER_BRIDGES
 #define RENDER_CLOUDS
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
@@ -669,7 +670,7 @@ vec2 sdPillars( in vec3 p, in vec3 ro )
     q.y += h_offset;
 
     // Colour some pillars with alt colour scheme
-    bool alt = quick_hash3 > 0.59 && quick_hash3 < 0.67;
+    bool alt = quick_hash3 > 0.49 && quick_hash3 < 0.57;
     float rad_mult = (alt) ? 0.58 : 0.8;
 
     vec2 tile_res = sdPillar(q, nseg, rad_mult*height, 3.0*height, 4.0, 16.0, n_pillar);
