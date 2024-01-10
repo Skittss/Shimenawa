@@ -64,7 +64,6 @@
 //#define CAMERA_RAY_STEPS 64
 //#define  LIGHT_RAY_STEPS 12
 
-
 // Dithering (removes artifacts from discrete ray sampling as a result of large-ish step size)
 #define CLOUD_BLUE_NOISE
 

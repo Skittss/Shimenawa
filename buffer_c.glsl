@@ -123,14 +123,9 @@ const float _BridgeMiniStrutThickness = 0.075;
 const float _BridgeMiniStrut_Y_Extrusion = 0.05;
 const float _BridgeMiniStrut_Z_Extrusion = 0.07;
 
-//--Infinite Bridge Construction Params--------------------------------------------------------------------------------------------
+//--Pillar Construction Params-----------------------------------------------------------------------------------------------------
 const float _BelowCloudBottomPillar = 10.0;
 
-const float _InfBridgeAnimSpeed = 0.3;
-const float _InfBridgeLowOffset = 8.0;
-const float _InfBridgeAnimSegLen = 6.0;
-
-//--Pillar Construction Params-----------------------------------------------------------------------------------------------------
 const float _PillarRoundness = 0.001;
 const float _PillarBevelRoundness = 0.01;
 const float _PillarBevelExtrusion = 0.1;
@@ -606,19 +601,7 @@ vec2 sdPillar(
 }
 
 vec2 sdPillars( in vec3 p, in vec3 ro )
-{
-    // TODO: Make pillar field interesting by modifying certain parameters 
-    //    - Bottom offset between 0 -> 1 * h (so pillars have 'phase')
-    //    - N small pillars, probably 2 -> 6
-    //    - Big pillar radius
-    //    - N repetitions (further pillars can be taller)
-    //    - N H and V bevels (further pillars should have fewer)
-    //    
-    
-    // TODO: Pillar variations - would like a whiter, but thinner variation through materials.
-        
-    // TODO: BB on wedge between cloud bottom and max pillar height.
-    
+{            
     const vec2 spacing = vec2(145.0);
     const float len_spacing = length(spacing);
 
@@ -929,87 +912,11 @@ vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float s
     p /= scale;
     h /= scale;
     
-    
     vec2 res = use_lod ? 
         sdBridgeSegmentLOD(p, h, seg_l) :
         sdBridgeSegment(p, h, seg_l);
         
     res.x *= scale;
-    
-    return res;
-}
-
-vec2 sdInfiniteBridgeAnimated( 
-    in vec3 p, in vec3 o, in float an, in float h,
-    const float sep, const float phase, const float n_seg, const float min_bound, const float max_bound
-) {
-    // TODO: I'm 99% sure it will be faster (for compilation, mostly) to just do 3 SDF calls: domain rep segment, falling, and rising sections.
-    vec2 res = vec2(1e10);
-    
-    // Potentially 3x the work.. but the SDF is correct.
-    //  The inclusion of this for loop also makes compilation very slow. Not exactly sure why but I don't think its due to 
-    //     Suggestions for fixes are welcome :) (if even possible - it is a lot of work being done here.)
-    #ifdef CORRECT_ANIM_BRIDGE_SDF
-    for (int i=-1; i<2; i++)
-    {
-    #else
-    int i = 0;
-    #endif
-    
-    vec3 q = p;
-    q -= o;
-    q.xz *= rot(an);
-    
-    float seg_l = 6.0;
-    float rep_id = float(i) + (round((q.x - seg_l) / (2.0*seg_l)));
-
-    q.x = q.x - 2.0*seg_l * rep_id; // domain repetition
-
-    // which repetition id should be at its animation zenith
-    float high_center_id = mod(_InfBridgeAnimSpeed*iTime, sep) + phase; 
-    // make repetitions periodic
-    float mod_rep_id = mod(rep_id, sep);
-    
-    // Get circular difference between two periodic ids (i.e. 19 - 0  = 1 (mod 20), not 19).
-    //  This determines how far we are from the bridge arc zenith.
-    //  as it turns out, this is the same as the distance between two elements of a ring 0 -> n-1: min(|i - j|, n - |i - j|).
-    float diff = min(abs(mod_rep_id - high_center_id), sep - abs(mod_rep_id - high_center_id));
-    
-    // This optimisation is terrible and bugged as hell, but somehow it kind of works.
-    if (diff > n_seg + 6.0) return vec2(1e10);
-    
-    // Clamp signal to: linear 0->1 if on edge, 1 if low, 0 if high
-    float edge_diff = clamp(diff, n_seg, n_seg + 1.0) - n_seg;
-    float diff_plus_one = clamp(diff, n_seg, n_seg + 2.0) - (n_seg + 1.0);
-    edge_diff = pow(edge_diff, 3.5); // ease in edges with power curve
-    edge_diff = (rep_id < min_bound || rep_id > max_bound) ? 1.0 : edge_diff; // Limit periodic function to certain range.
-    
-    q.y += _InfBridgeLowOffset * edge_diff;
-    
-    #ifdef CORRECT_ANIM_BRIDGE_SDF
-    res = MIN_MAT(res, sdBridgeSegment(q, h, seg_l));
-    }
-    #else
-    res = sdBridgeSegment(q, h, seg_l);
-    #endif
-    
-    // Clip low bridges
-    float clip_dist = p.y + _BelowCloudBottom;
-    res.x = max(-clip_dist, res.x); // Boolean subtraction
-
-    return res;
-}
-
-vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
-{
-    // Create bridge on z axis line, then wrap it around an arc with circle uvs
-    float ring_t = 0.0;
-    float dRing = sdCircleXZ(p, r, ring_t);
-        
-    // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
-    vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
-    vec2 res = sdBridgeSegment(ring_uv / 4.0, h, l);
-    res.x *= 0.8;
     
     return res;
 }
@@ -1180,11 +1087,6 @@ vec2 mapBackground( in vec3 p, in vec3 ro )
     #ifdef RENDER_PILLARS
     res = MIN_MAT(res, sdPillars(p + vec3(0.0, _CloudBottomExtra, 0.0), ro));
     #endif
-    
-    // Bridge Segment
-    #if 0
-    res = MIN_MAT(res, sdBridgeSegment(p, 2.5, 6.0));
-    #endif
 
     // Static Inf Bridges
     #ifdef RENDER_BRIDGES
@@ -1204,32 +1106,7 @@ vec2 mapBackground( in vec3 p, in vec3 ro )
     }
     #endif
     
-    // Animated Inf Bridges
-    #if 0
-    {
-    res = MIN_MAT(res, sdInfiniteBridgeAnimated(
-        p, vec3(60.0, 0.0, 60.0), PI / 2.0, 2.5,
-        40.0, 0.0, 1.0, -20.0, 20.0
-    ));
-    
-    // TODO: There is a bug where the high bridges do not update correctly with the following.
-    /*
-    vec3 q = p;
-    q.xz *= rot(PI);
-    res = MIN_MAT(res, sdInfiniteBridgeAnimated(
-        q, vec3(-35.0, 0.0, -35.0), PI / 2.0, 1.5,
-        40.0, 2.0*TAU, 1.0, -20.0, 20.0, 1.0
-    ));
-    */
-    }
-    #endif
-    
-    // Curved bridge segment
-    #if 0
-    res = MIN_MAT(res, sdCurvedBridge(p, 2.5, 6.0, 15.0));
-    #endif
-           
-    return res; // returns (distance, material) pair.
+    return res;
 }
 
 vec3 calcNormalBackground( in vec3 pos )
