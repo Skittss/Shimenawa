@@ -1,3 +1,19 @@
+//============================================================================================
+//  Author's Note:
+//  作者の一言
+//
+//    !! Alternate colour schemes can be found in common ^^
+//    !! Common（共通のページ）で配色を変えりできます。^^
+//
+//    This shader has served as my learning playground for raymarching.
+//      It is by no means perfect, but I hope you enjoy it as much as I enjoyed making it.
+//    このシェーダーを作ることでレイマーチングの基本を学びました。
+//      決して完璧じゃありませんが、見て楽しんでください。
+//    
+//    Also, apologies for the long compile time! I tried to make it as quick as possible.
+//    長いコンパイル時間にすみません。なるべく短くしようとしました。
+//
+//============================================================================================
 /*                                  
 
                                                  ████                                               

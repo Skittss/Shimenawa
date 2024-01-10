@@ -40,10 +40,9 @@
 // Simple buffer pass bloom. 
 // Do this step in HDR space to avoid blooming non-bright objects. 
 //  Combine 4 mipmap levels for progressive gaussian blur, and apply.
-//  There is some artifacting due to the gaussian size.
+//  There is some artifacting due to the approximation of gaussian + size.
 
-// I honestly think this is a pretty bad way of doing this on shadertoy in hindsight
-//  Would benefit greatly from individual buffers for each level + billinear sampling ...Too bad!
+//  This would benefit greatly from individual buffers for each level + billinear sampling ...Too bad!
 
 #define THRESH vec3(EXPOSURE * BLOOM_THRESHOLD)
 
@@ -70,7 +69,7 @@ vec3 mipmap(float mipmap_exp, vec2 offset, vec2 uv)
     for (int i = -5; i < 5; i++) 
     for (int j = -5; j < 5; j++) 
     {
-        float weight = pow(1.0 - length(vec2(i,j)) * 0.125, 6.0); // Apply pseudo-gaussian weights, TODO: These could be more accurate
+        float weight = pow(1.0 - length(vec2(i,j)) * 0.125, 6.0); // Apply pseudo-gaussian weights
 
         vec2 blur_coord = vec2(i,j) * scale + ds_factor * pixel_size + coord;
                 

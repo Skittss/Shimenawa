@@ -120,9 +120,9 @@ float worley(vec3 pos, float numCells)
 {
 	vec3 p = pos * numCells;
 	float d = 1.0e10;
-	for (int x = -1; x <= 1; x++){
-		for (int y = -1; y <= 1; y++){
-			for (int z = -1; z <= 1; z++){
+	for (int x = -1; x <= 1; x++) {
+		for (int y = -1; y <= 1; y++) {
+			for (int z = -1; z <= 1; z++) {
                 vec3 tp = floor(p) + vec3(x, y, z);
                 tp = p - tp - (0.5 + 0.5 * hash(mod(tp, numCells)));
                 d = min(d, dot(tp, tp));
@@ -143,8 +143,8 @@ vec3 get3Dfrom2D(vec2 uv, float tileRows)
 float getTextureForPoint(vec3 p, int type)
 {
 	float res;
-    if(type == PERLIN_WORLEY){
-        
+    if(type == PERLIN_WORLEY)
+    {
         //Perlin-Worley.
         float perlinNoise = getPerlinNoise(p, SIZE);
         res = perlinNoise;
@@ -244,7 +244,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         col.g = saturate(remap(worleyPerlinNoise, worleyNoise, 1.0, 0.0, 1.0));
 
         // Unused cells
-        if(gl_FragCoord.x > tileRows * tileSize || gl_FragCoord.y > tileRows * tileSize){
+        if(gl_FragCoord.x > tileRows * tileSize || gl_FragCoord.y > tileRows * tileSize)
+        {
             col = vec3(0);
         }
         

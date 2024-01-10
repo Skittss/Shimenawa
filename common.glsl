@@ -45,6 +45,12 @@
 //========================================================
 // RENDERING PARAMS
 
+// Use stars on certain colour schemes
+#define STARS
+
+// Use orbit controls (debug cam)
+//#define USE_ORBIT_CAMERA
+
 // Increasing max steps can help render objects at oblique angles
 #define RAYMARCH_MAX_STEPS 128
 #define BRIDGE_LOD_DIST 800.0;
@@ -52,9 +58,6 @@
 // Width of SSAA square (e.g. AA = 2 corresponds to 4x SSAA)
 #define AA 1
 #define AO_SAMPLES 64.0
-
-// Use stars on certain colour schemes
-#define STARS
 
 // Cloud settings
 //   Fast Raymarch
@@ -94,8 +97,6 @@
 #define GT_BLACK_TIGHTNESS_OFFSET 0.00
 
 // LDR (post-HDR effects)
-//#define GAMMA 1.0
-//#define GAMMA 2.2
 #define GAMMA 0.4545
 #define BRIGHTNESS 0.0
 #define CONTRAST 1.15
@@ -124,14 +125,15 @@ mat2 rot(in float a) { float c = cos(a); float s = sin(a); return mat2(c, s, -s,
 
 // https://www.shadertoy.com/view/3sffzj
 // For Perlin-Worley noise
-float saturate(float x){
+float saturate(float x)
+{
 	return clamp(x, 0.0, 1.0);
 }
 
-float remap(float x, float low1, float high1, float low2, float high2){
+float remap(float x, float low1, float high1, float low2, float high2)
+{
 	return low2 + (x - low1) * (high2 - low2) / (high1 - low1);
 }
-
 
 //========================================================
 // SDFs
@@ -172,6 +174,11 @@ float sdCappedCylinder( vec3 p, float h, float r )
 {
     vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
     return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+float sdInfVerticalCylinder( vec3 p, vec3 c )
+{
+  return length(p.xz-c.xy)-c.z;
 }
 
 // https://iquilezles.org/articles/distfunctions
@@ -282,9 +289,7 @@ vec2 iSphere( in vec3 ro, in vec3 rd, in float rad )
 	return vec2( -b-h, -b+h );
 }
 
-// https://gist.github.com/DomNomNom/46bb1ce47f68d255fd5d
-// Compute the near and far intersections using the slab method.
-// No intersection if tNear > tFar.
+// https://www.shadertoy.com/view/3sffzj
 vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) 
 {
     vec3 tMin = (boxMin - rayOrigin) / rayDir;

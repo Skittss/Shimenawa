@@ -35,18 +35,15 @@
        
     --------------------------------------------------------------------------------------------
     
-    This shader has served as my learning playground for raymarching.
-      It is by no means perfect, but I hope you enjoy it as much as I enjoyed making it.
-    このシェーダーを作ることでレイマーチングの基本を学びました。
-      決して完璧じゃありませんが、見て楽しんでください。
-    
-    Also, apologies for the long compile time! I tried to make it as quick as possible.
-    長いコンパイル時間にすみません。なるべく短くしようとしました。
-    
 */
 
 // TODO:
-//   - Stars
+//   I had a few more computationally inexpensive ideas for this shader which i'd love to spend more time on, but alas.
+//
+//   - Pillars Rising and Dropping from the background, and potentially bridge segments.
+//   - Shooting Stars
+//   - Finish unused rope suspension code + wave ripples from animation.
+//   
 //================================================================================================================================================
 //--Consts and Debug---------------------------------------------------------------------------------------------------------------
 #define ZERO (min(iFrame,0))
@@ -58,29 +55,20 @@
 
 // Debug (Orbital Mouse Controls) camera settings
 //    Feel free to take a look around the scene from a different view ^^
-#define USE_DEBUG_CAMERA
+//#define USE_DEBUG_CAMERA
 #define DEBUG_CAMERA_DIST 1.0
 #define DEBUG_CAMERA_TARGET vec3(0.0, 0.0, 0.0)
 
 // Cinematic camera settings
-#define CAMERA_DIST 1.6
+#define CAMERA_DIST 1.15
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
+#define CAMERA_SPEED vec2(0.09, 0.07)
 
 // Debug Rendering settings
 #define RENDER_ROPE
 #define RENDER_PILLARS
 #define RENDER_BRIDGES
 #define RENDER_CLOUDS
-
-// These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
-//   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
-//   TODO: Look into ways to fix (or alternative approaches).
-
-// Fast animated bridges do not correct discontinuous domain rep SDF and will cause artifacts, but are considerably faster.
-//  From a distance, the broken SDF is not overly noticeable.
-//    TODO: I'm fairly confident this can be worked around by just doing 3 SDF evaluations. I end up doing 3 anyway to ensure correctness???
-#define CORRECT_ANIM_BRIDGE_SDF
-
 
 //--Bridge Construction Params-----------------------------------------------------------------------------------------------------
 const float _BelowCloudBottom = 5.0;
@@ -148,9 +136,13 @@ const float _LittlePillar_N = 3.0; // smaller numbers (generally odd) give bette
 
 //--Rope Params--------------------------------------------------------------------------------------------------------------------
 const vec3 _ShideWindParams = vec3(0.10, 4.0, 1.75); // Wave amplitude, distance modifier (stiffness), anim speed
-const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5); // Smaller sub-waves
+const vec3 _ShideWindParams_s = vec3(0.013, 72.0, 3.5); // Smaller wind ripples
+
 const vec2 _KiraretanawaWindParamsYZ = vec2(PI / 20.0, 2.3); // Max rot, anim speed
 const vec2 _KiraretanawaWindParamsYX = vec2(PI / 30.0, 2.0);
+
+const float _RopeSwaySpeed = 1.1;
+const float _RopeSwayAmplitude = 0.007;
 
 //--Cloud Params-------------------------------------------------------------------------------------------------------------------
 const vec3 _CloudSigmaS = vec3(1.0); // Inscattering coeff
@@ -225,7 +217,7 @@ const float _StarIntensityContrast = 2.0; // this is an exponent
 const float _Star_Y_Cutoff = -0.1; // in range [-1, 1]: normalized ray direction
 const float _StarHorizonFadeStrength = 0.16;
 const float _StarSunFadeSrength = 15.0;
-const float _StarTwinkleSpeed = 2.2;
+const float _StarTwinkleSpeed = 1.5;
 
 //--Colour Schemes-----------------------------------------------------------------------------------------------------------------
 //----0: Sunset----------------------------------------------------------------------------------------------------
@@ -342,6 +334,32 @@ float henyeyGreenstein(float g, float costh)
 //==SDF===========================================================================================================================================
 
 //--Shimenawa----------------------------------------------------------------------------------------------------------------------
+float sdHalo( in vec3 p, in float r ) // Unused
+{
+    // Ring
+    float d = sdTorus(p, vec2(r, 0.008));
+    
+    // Rotational repetition
+    vec3 q = p;
+    float an = TAU/8.0;
+    q.xz *= rot(an);
+    
+    an = TAU/4.0;
+    float sector = round(atan(q.z,q.x)/an);
+    float angrot = sector*an;
+    q.xz *= rot(angrot);
+    //q.x *= 2.0;
+    q.x -= r;
+    
+    // Stones
+    d = min(d, sdOctahedron(q, 0.025));
+    
+    // Cords
+    if (p.y > 0.0) d = min(d, sdInfVerticalCylinder(q, 0.003*vec3(0.0, 0.0, 1.0)));
+    
+    return d;
+}
+
 float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
 {
     // 紙垂 (Shide) Multiple zig-zag boxes    
@@ -435,7 +453,8 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     float dRing = sdCircleXZ(p, r, ring_t);
     ring_t = 1.0 - ring_t; // reflect rope direction
     
-    //p.y = p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time);
+    // TODO: this stretches non rope parts, but is not noticeable at low amplitudes.
+    p.y = p.y + 0.007*sin(2.0*2.0*PI*ring_t+_RopeSwaySpeed*iTime); // Rope sway
     
     // Swirly Rope
     if (dRing < 0.8) // approx bounding ring
@@ -475,6 +494,40 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     float d = sdKiraretanawa(q_s - vec3(r, -1.4*c, 0.0), 0.14, 0.05, sector+1.0);
     res = MIN_MAT(res, vec2(d, MAT_ROPE));
     }
+    
+    #if 0
+    // Suspension (unused, but kinda cool)
+    {
+    // TODO: wave ripple effect on rope from each pull of a suspension rope
+    vec3 q = p;
+    
+    
+    float an = TAU/10.0;
+    q.xz *= rot(an);
+    
+    an = TAU/5.0;
+    float sector = round(atan(q.z,q.x)/an);
+    float angrot = sector*an;
+    q.xz *= rot(angrot);
+    
+    const float halo_speed = 2.0;
+    
+    float hash_id = hash1(sector);
+    float signal_t = 131.3389*hash_id + halo_speed * hash_id * iTime;
+    float signal = sin(signal_t); // periodic signal for movement
+    signal = pow(signal, 6.0); // make movement more sharp
+    float signal_mask = 1.0 - step(1.0, mod(floor(signal_t/PI), 6.0)); // mask out n repetitions
+    signal *= signal_mask; // apply mask;
+    
+    q.y -= 0.12*signal;
+    //q.y += 0.06*sin(hash1(sector)*iTime);
+    
+    float d = sdHalo(q - vec3(0.9*r, 0.25, 0.0), 0.1);
+    res = MIN_MAT(res, vec2(d, MAT_SHIDE));
+    
+    //res = MIN_MAT(res, vec2(sdTorus(q, vec2(0.1, 0.01)), MAT_SHIDE));
+    }
+    #endif
     
     res.x *= 0.8; // Deal with messed up SDF T^T
     return res;
@@ -839,7 +892,6 @@ vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
 
 vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
 {
-    // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
     vec2 res = vec2(1e10);
             
     // Transform to correct origin plane in y
@@ -872,7 +924,6 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
 
 vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
 {
-    // TODO: I made this quite detailed... might have to cut back if optimisation is not enough with BB, etc.    
     vec2 res = vec2(1e10);
                 
     // Bounding box
@@ -895,7 +946,6 @@ vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
 
 vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float scale )
 {
-    // TODO: BB on wedge between cloud bottom and bridge height (top).
     bool use_lod = length(p) > BRIDGE_LOD_DIST;
 
     // Map bridge to line in XZ plane with line origin (o) and direction in XZ defined by angle from x basis vector (an).
@@ -922,36 +972,6 @@ vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float s
 }
 
 //==ATMOSPHERE==================================================================================================================================
-/*
-vec3 shootingStars( in vec3 ro, in vec3 rd )
-{
-    const float steepness = -0.5;
-    const float start_height = 100.0;
-    const float end_height = 50.0;
-    const float height_dev = 10.0;
-    const float max_spawn_dist = 100.0;
-    const float min_spawn_dist = 20.0;
-    const float shooting_star_size = 1.0;
-    
-    
-    vec3 dir = vec3( -1.0, steepness, -1.0 );
-    
-    // spawn stars at least a certain r from camera origin
-    
-    // speed and size decay as it falls, as well as colour change
-    
-    // trail
-    
-    vec3 star_pos = vec3(10.0);
-    
-    float d = sdSphere(star_pos, shooting_star_size);
-    
-    if (d <= 0.0) return vec3(1.0);
-    
-    return vec3(0.0);
-}
-*/
-
 vec3 stars( in vec3 rd, in float sun_dist )
 {
     // TODO: Would love some subtle shooting stars here
@@ -1023,10 +1043,7 @@ vec3 sky( in vec3 ro, in vec3 rd )
     float horizon = 1.0 - zenith - nadir;
     
     vec3 skycol = zenith * _ZenithCol + nadir * _NadirCol + horizon * _HorizonCol;
-    
-    // Skybox Clouds?
-    //  Also add a few wispy streaks for extra detail?
-    
+        
     // Sun
     float halo = pow((_SunHaloRadius/dist), _SunHaloAttenuation);
     vec3 sun = halo * _SunCol;
@@ -1035,9 +1052,7 @@ vec3 sky( in vec3 ro, in vec3 rd )
     
     // Stars
     #if defined(STARS) && COLOUR_SCHEME == 1
-    //skycol += shootingStars(ro, rd);
     skycol += stars(rd, dist);
-            
     #endif
     
     return skycol;
@@ -1054,7 +1069,7 @@ vec3 fog( in vec3 col, in float t, in vec3 rd )
     return mix(col, fog_col, amt);
 }
 
-// TODO: I don't think this object scales well with distance / object size.
+// TODO: I don't think this scales well with distance / object size.
 vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 {
     // Create an outline around objects within a certain radius around the sun.
@@ -1126,8 +1141,6 @@ vec3 intersectBackground( in vec3 ro, in vec3 rd )
 {
     vec3 res = vec3(-1.0, 1e10, -1.0);
     
-    // TODO: One bounding volume might not be enough for this whole scene.
-    //        Ideally could find a way to stop raymarching for specific objects without having to pass ro, rd into map()...
     vec2 tminmax = iSphere( ro, rd, 6000.0 );
 	if( tminmax.y>0.0 )
     {
@@ -1175,8 +1188,6 @@ vec3 intersectForeground( in vec3 ro, in vec3 rd )
 {
     vec3 res = vec3(-1.0, 1e10, -1.0);
     
-    // TODO: One bounding volume might not be enough for this whole scene.
-    //        Ideally could find a way to stop raymarching for specific objects without having to pass ro, rd into map()...
     vec2 tminmax = iSphere( ro, rd, 0.75 );
 	if( tminmax.y>0.0 )
     {
@@ -1222,9 +1233,7 @@ float softShadowForeground( in vec3 ro, in vec3 rd, float k )
     {
         float h = mapForeground(ro + rd*t).x;
         res = min( res, smoothstep(0.0,1.0,k*h/t) );
-        //t += clamp( h, 0.0, 0.1 );
         t += h;
-		//if( res<0.01 ) break;
 		if( abs(res)<0.01 ) break;
     }
     return clamp(res,0.0,1.0);
@@ -1256,9 +1265,7 @@ float softShadowBackground( in vec3 ro, in vec3 rd, float k )
     {
         float h = mapBackground(ro + rd*t, ro).x;
         res = min( res, smoothstep(0.0,1.0,k*h/t) );
-        //t += clamp( h, 0.0, 0.1 );
         t += h;
-		//if( res<0.01 ) break;
 		if( abs(res)<0.01 ) break;
     }
     return clamp(res,0.0,1.0);
@@ -1285,10 +1292,8 @@ float calcAOBackground( in vec3 pos, in vec3 nor )
 //--MATERIALS----------------------------------------------------------------------------------------------------------------------
 vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m ) 
 {
-    // TODO: Bridges and pillars should cast (relatively) sharp shadows on one another, so they need a separate map func.
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormalForeground(pos);
-    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 2.0); // Soft
     float shadow = softShadowForeground(pos - 0.01*rd, _LightDir, 10.0); // Sharp
     float occ = calcAOForeground(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
@@ -1317,10 +1322,7 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
         vec3 sss = 0.3*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
         
         vec3 base_shadow = mix(0.6*mat, _HorizonCol, 0.2);
-
-        //sss = sss + fre + (0.5+0.5*fre)*pow(abs(t-0.2),1.0);
         
-        //return vec3(occ);
         return sss + mix(base_shadow, mat, shadow);
     }
     
@@ -1333,10 +1335,8 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
 
 vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m ) 
 {
-    // TODO: Bridges and pillars should cast (relatively) sharp shadows on one another, so they need a separate map func.
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormalBackground(pos);
-    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 2.0); // Soft
     float shadow = softShadowBackground(pos - 0.01*rd, _LightDir, 15.0); // Sharp
     float occ = calcAOBackground(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
@@ -1577,9 +1577,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
     bool isect = intersectClouds(ro, rd, t, isect_length);
     
     if (!isect) return col;
-    
-    // TODO: Early exit if no intersection.
-    
+        
     float step_size = isect_length / float(CAMERA_RAY_STEPS);
     t += step_size * ray_offset;
     start_t = -1.0;
@@ -1682,10 +1680,10 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     float cloud_t;
     vec3 cloud_col = 0.5 * renderClouds( ro, rd, ray_offset, cloud_transmittance, cloud_t ); 
     
-    if ( min_tm.x < 0.0 || (cloud_t > 0.0 && cloud_t < min_tm.x) ) {
+    if ( min_tm.x < 0.0 || (cloud_t > 0.0 && cloud_t < min_tm.x) )
+    {
         min_t = cloud_t;
         col = cloud_col + col * cloud_transmittance;
-        //col = mix(cloud_col, col, cloud_transmittance);
     }
     #endif
     
@@ -1720,7 +1718,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         #endif
 
 	    // camera & movement
-        float an = TAU*1.4*iTime/40.0;
         #ifdef USE_DEBUG_CAMERA
         vec3 ta = DEBUG_CAMERA_TARGET;
         #else
@@ -1738,8 +1735,10 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
             ro += ta;
         }
         #else
-        //ro = ta + vec3( cos(an), -0.3, sin(an) );
-        ro = ta + CAMERA_DIST*vec3( cos(an), 0.3*sin(2.0*an), sin(an) );
+        float an_h = 1.37*PI + PHI*CAMERA_SPEED.x*iTime;
+        float an_v = -0.25*PI + (PHI+1.0)*CAMERA_SPEED.y*iTime;
+
+        ro = ta + CAMERA_DIST*vec3( cos(an_h), 0.2*sin(2.0*an_v), sin(an_h) );
         #endif
         
         // camera-to-world transformation
