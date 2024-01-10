@@ -67,20 +67,19 @@
 #define CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Debug Rendering settings
-//#define RENDER_ROPE
+#define RENDER_ROPE
 #define RENDER_PILLARS
-//#define RENDER_BRIDGES
+#define RENDER_BRIDGES
 #define RENDER_CLOUDS
 
 // These Slow flags are almost solely responsible for the long compile time. They are important for ensuring domain repetition SDF
 //   correctness but I surmise they cause the compiler to unwind a bunch of complex SDF code, causing the slowdown.
 //   TODO: Look into ways to fix (or alternative approaches).
 
-// Fast animated bridges (& pillars) do not correct discontinuous domain rep SDF and will cause artifacts, but are considerably faster.
-//  TODO: I'm fairly confident this can be worked around by just doing 3 SDF evaluations. I end up doing 3 anyway to ensure correctness???
-#define SLOWER_BRIDGES 0
-// Fast pillars are not reccommended (very broken).
-#define SLOWER_PILLARS 1
+// Fast animated bridges do not correct discontinuous domain rep SDF and will cause artifacts, but are considerably faster.
+//  From a distance, the broken SDF is not overly noticeable.
+//    TODO: I'm fairly confident this can be worked around by just doing 3 SDF evaluations. I end up doing 3 anyway to ensure correctness???
+#define CORRECT_ANIM_BRIDGE_SDF
 
 
 //--Bridge Construction Params-----------------------------------------------------------------------------------------------------
@@ -224,6 +223,15 @@ const float _HorizonOffset = 0.0;
 const float _FogDistBias = 800.0;
 const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
 
+const float _StarDist = 300.0;
+const float _StarRepetitions = 4.0;
+const vec3  _StarCol = vec3(1.0);
+const float _StarIntensityContrast = 2.0; // this is an exponent
+const float _Star_Y_Cutoff = -0.1; // in range [-1, 1]: normalized ray direction
+const float _StarHorizonFadeStrength = 0.16;
+const float _StarSunFadeSrength = 15.0;
+const float _StarTwinkleSpeed = 2.2;
+
 //--Colour Schemes-----------------------------------------------------------------------------------------------------------------
 //----0: Sunset----------------------------------------------------------------------------------------------------
 #if COLOUR_SCHEME == 0
@@ -291,7 +299,7 @@ const vec3 _MatShideSecondary = vec3(1.0, 1.0, 1.0);
 
 const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
 const vec3 _MatPillarStoneAlt = 0.4*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAltFre = 1.45*vec3(0.00, 0.243, 0.502);
+const vec3 _MatPillarStoneAltFre = 1.35*vec3(0.00, 0.243, 0.502);
 const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 //-----------------------------------------------------------------------------------------------------------------
@@ -316,8 +324,10 @@ vec2 MIN_MAT(vec2 a, vec2 b) { return (a.x < b.x) ? a : b; }
 // util functions for AO
 // https://www.shadertoy.com/view/ld3Gz2
 float hash1(float n) { return fract(sin(n)*43758.5453123); }
-float hash1( vec2 n) { return fract(43758.5453123*sin(dot(n,vec2(1.0,113.0)))); }
-float hash2( vec2 n) { return fract(74193.9957812*sin(dot(n,vec2(99.0,33.0)))); }
+float hash1(vec2 n)  { return fract(43758.5453123*sin(dot(n,vec2(1.0,113.0)))); }
+float hash2(vec2 n)  { return fract(74193.9957812*sin(dot(n,vec2(99.0,33.0)))); }
+float hash2(vec3 n)  { return fract(74193.9957812*sin(dot(n,vec3(99.3875,33.19193,57.10632)))); }
+float hash3(vec3 n)  { return fract(81537.7754108*sin(dot(n,vec3(26.4332,86.98591,97.68399)))); }
 
 vec3 forwardSF(float i, float n) 
 {
@@ -435,7 +445,7 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     // Swirly Rope
     if (dRing < 0.8) // approx bounding ring
     {    
-        // I'm fairly confident this local-UV transformation majorly messes up the SDF for isolines > 0.0 but... oh well.
+        // I'm fairly confident this local-UV transformation messes up the SDF but... oh well.
         //vec3 ring_uv = vec3(ring_t * TAU * r, p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time), dRing);
         vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
         res = vec2(sdSwirl(ring_uv, r, c, f, id), MAT_ROPE);
@@ -630,14 +640,10 @@ vec2 sdPillars( in vec3 p, in vec3 ro )
     
     vec2 o = -sign(ro.xz - spacing * base_id); // cut down on the amount of neighbour comparisons
     
-    #if SLOWER_PILLARS
+    // Fix the Domain Rep SDF by checking closest neighbours
     for (int i=0; i<2; i++)
     for (int j=0; j<2; j++)
     {
-    #else
-    {
-    int i = 0; int j = 0;
-    #endif 
     
     vec2 id = base_id + o*vec2(i, j);
     float len_id = length(id);
@@ -943,7 +949,7 @@ vec2 sdInfiniteBridgeAnimated(
     // Potentially 3x the work.. but the SDF is correct.
     //  The inclusion of this for loop also makes compilation very slow. Not exactly sure why but I don't think its due to 
     //     Suggestions for fixes are welcome :) (if even possible - it is a lot of work being done here.)
-    #if SLOWER_BRIDGES
+    #ifdef CORRECT_ANIM_BRIDGE_SDF
     for (int i=-1; i<2; i++)
     {
     #else
@@ -980,7 +986,7 @@ vec2 sdInfiniteBridgeAnimated(
     
     q.y += _InfBridgeLowOffset * edge_diff;
     
-    #if SLOWER_BRIDGES
+    #ifdef CORRECT_ANIM_BRIDGE_SDF
     res = MIN_MAT(res, sdBridgeSegment(q, h, seg_l));
     }
     #else
@@ -1009,11 +1015,88 @@ vec2 sdCurvedBridge( in vec3 p, in float h, in float l, in float r )
 }
 
 //==ATMOSPHERE==================================================================================================================================
-vec3 stars( in vec3 ro, in vec3 rd )
+/*
+vec3 shootingStars( in vec3 ro, in vec3 rd )
 {
-    // Generate spherical coords for stars
+    const float steepness = -0.5;
+    const float start_height = 100.0;
+    const float end_height = 50.0;
+    const float height_dev = 10.0;
+    const float max_spawn_dist = 100.0;
+    const float min_spawn_dist = 20.0;
+    const float shooting_star_size = 1.0;
+    
+    
+    vec3 dir = vec3( -1.0, steepness, -1.0 );
+    
+    // spawn stars at least a certain r from camera origin
+    
+    // speed and size decay as it falls, as well as colour change
+    
+    // trail
+    
+    vec3 star_pos = vec3(10.0);
+    
+    float d = sdSphere(star_pos, shooting_star_size);
+    
+    if (d <= 0.0) return vec3(1.0);
     
     return vec3(0.0);
+}
+*/
+
+vec3 stars( in vec3 rd, in float sun_dist )
+{
+    // TODO: Would love some subtle shooting stars here
+
+    // Set up arbitrary skew rotation matrix for repetition
+    const vec3 coeff = vec3(0.6, 0.3, 0.1); // scaling coefficients
+    //   Use first two pythagorean triplets for approximation of matrix rotation values instead of slow cos/sin funcs.
+    const vec4 trig = vec4(3.0/5.0, 4.0/5.0, 5.0/13.0, 12.0/13.0); // cos a, sin a, cos b, sin b
+    //   Stick above into general rotation matrix
+    const mat3 rot_mat = mat3(
+        dot(coeff, vec3(1.0, trig.x, trig.z)), coeff.z*trig.w, coeff.y*trig.y,
+        -trig.w*coeff.z, dot(coeff, vec3(1.0, 1.0, trig.z)), 0.0,
+        -trig.y*coeff.y, 0.0, dot(coeff, vec3(1.0, trig.x, 1.0))
+    );
+
+    float ray_intensity = 0.0; 
+    float star_intensity;
+    
+    // Accumulate colour of multiple repetitions
+    vec3 p = rd * _StarDist;
+        
+    if (rd.y < _Star_Y_Cutoff) return vec3(0.0); // Don't render stars far below cloud 
+        
+    for (float i = 0.0; i < _StarRepetitions; i++)
+    {
+        vec3 q = fract(p) - 0.5;
+        vec3 id = floor(p);
+        float id_hash = hash2(id);
+        float id_hash2 = hash3(id);
+        star_intensity  = smoothstep(0.25, 0.0, dot(q, q)); // Size
+        star_intensity *= step(id_hash, 0.02-0.002*i*i);  // Distance-based intensity
+        star_intensity *= min(0.25*id_hash + sin(14513.32*id_hash + id_hash2*_StarTwinkleSpeed*iTime), 1.0); // twinkle
+        ray_intensity  += star_intensity;
+        p *= rot_mat; // Rotate star space for repetition
+    }
+    ray_intensity = pow(ray_intensity, _StarIntensityContrast); // Distance intensity contrast
+    
+    // Make star clusters: Density-based intensity modifier.
+    float density = dot(sin(rd*10.55), cos(rd.yxz*4.13)); // Quick high & low density blobs
+    density = mix(smoothstep(-3.4, -0.9, density), smoothstep(-0.3, 1.0, density), 0.5); // Smooth low and high blobs out with smoothstep
+    density = mix(density*density, density, 0.5); // increase blob contrast 
+    
+    ray_intensity *= density;
+    
+    // fade off stars near sun and horizon to mimic some sort of camera exposure
+    float horizon_mask = clamp(pow(0.5*(rd.y - _Star_Y_Cutoff) / _StarHorizonFadeStrength, 2.0), 0.0, 1.0);
+    float sun_mask = smoothstep(0.0, 1.0, (clamp((sun_dist - _SunHaloRadius) / _StarSunFadeSrength, 0.0, 1.0)));
+                        
+    ray_intensity *= horizon_mask;
+    ray_intensity *= sun_mask;
+    
+    return clamp(_StarCol * ray_intensity, 0.0, BLOOM_THRESHOLD); // Don't bloom
 }
 
 vec3 sky( in vec3 ro, in vec3 rd ) 
@@ -1021,8 +1104,8 @@ vec3 sky( in vec3 ro, in vec3 rd )
     // Make sun always appear as if viewed from a certain point to deal with the fact it
     //  is infact very close geometrically.
     vec3 sun_pov_origin = vec3(0.0);
-    float sunDist = length(_SunPos);
-    float dist = length(_SunPos - (sun_pov_origin + rd * sunDist)) - _SunSize;
+    float sun_dist = length(_SunPos);
+    float dist = length(_SunPos - (sun_pov_origin + rd * sun_dist)) - _SunSize;
     dist = dist < 0.0 ? 0.0 : dist;
     
     float ry = _HorizonOffset + rd.y;
@@ -1037,13 +1120,17 @@ vec3 sky( in vec3 ro, in vec3 rd )
     // Skybox Clouds?
     //  Also add a few wispy streaks for extra detail?
     
+    // Sun
     float halo = pow((_SunHaloRadius/dist), _SunHaloAttenuation);
     vec3 sun = halo * _SunCol;
     skycol = 1.0 - exp(-(skycol + sun));
     skycol *= _SunBrightness;
     
-    #if COLOUR_SCHEME == 1
-    skycol += stars(ro, rd);
+    // Stars
+    #if defined(STARS) && COLOUR_SCHEME == 1
+    //skycol += shootingStars(ro, rd);
+    skycol += stars(rd, dist);
+            
     #endif
     
     return skycol;
@@ -1360,9 +1447,9 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
         return sss + mix(base_shadow, mat, shadow);
     }
     
+    // Render normal if no mat
     vec3 col = vec3(0.0);
     col = 0.5 + 0.5*nor;
-    //col = mix(vec3(0.0), col, shadow);
 
     return 1.2*col;
 }
@@ -1432,10 +1519,10 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
         
         return mix(base_shadow, albedo, shadow);
     }
-
+    
+    // Render normal if no mat
     vec3 col = vec3(0.0);
     col = 0.5 + 0.5*nor;
-    //col = mix(vec3(0.0), col, shadow);
 
     return 1.2*col;
 }
@@ -1443,6 +1530,7 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
 //--CLOUDS-------------------------------------------------------------------------------------------------------------------------
 vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_size)
 {
+    // TODO: comments
     vec3 li = vec3(0.0);
     const float OCTAVES = 4.0;
     
@@ -1697,6 +1785,8 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     
     col += sunSSSOutline(ro, rd, min_tm.y);
     
+    float min_t = min_tm.x; // track smallest t for fog
+    
     // --CLOUDS-------------------------------------------------------------------
     #ifdef RENDER_CLOUDS
     vec3 cloud_transmittance = vec3(1.0);    
@@ -1713,7 +1803,6 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     #endif
     
     float cloud_t;
-    float min_t = min_tm.x; // track smallest t for fog
     vec3 cloud_col = 0.5 * renderClouds( ro, rd, ray_offset, cloud_transmittance, cloud_t ); 
     
     if ( min_tm.x < 0.0 || (cloud_t > 0.0 && cloud_t < min_tm.x) ) {

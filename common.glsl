@@ -43,6 +43,35 @@
 #define COLOUR_SCHEME 1
 
 //========================================================
+// RENDERING PARAMS
+
+// Increasing max steps can help render objects at oblique angles
+#define RAYMARCH_MAX_STEPS 128
+#define BRIDGE_LOD_DIST 800.0;
+
+// Width of SSAA square (e.g. AA = 2 corresponds to 4x SSAA)
+#define AA 1
+#define AO_SAMPLES 64.0
+
+// Use stars on certain colour schemes
+#define STARS
+
+// Cloud settings
+//   Fast Raymarch
+#define CAMERA_RAY_STEPS 32
+#define  LIGHT_RAY_STEPS 8
+//   Slow Raymarch - Less noise.
+//#define CAMERA_RAY_STEPS 64
+//#define  LIGHT_RAY_STEPS 12
+
+
+// Dithering (removes artifacts from discrete ray sampling as a result of large-ish step size)
+#define CLOUD_BLUE_NOISE
+
+// Cast shadows from the background -> the clouds. Very pretty!!! but extremely slow. 
+//#define CLOUD_SHADOW_CAST
+
+//========================================================
 // POST-PROCESSING PARAMS
 
 // Toggle - (Gamma and tonemapper always applied)
@@ -72,31 +101,6 @@
 #define BRIGHTNESS 0.0
 #define CONTRAST 1.15
 #define VIGNETTE
-
-//========================================================
-// RENDERING PARAMS
-
-// Increasing max steps can help render objects at oblique angles
-#define RAYMARCH_MAX_STEPS 128
-#define BRIDGE_LOD_DIST 800.0;
-
-// Width of SSAA square (e.g. AA = 2 corresponds to 4x SSAA)
-#define AA 1
-#define AO_SAMPLES 64.0
-
-// Cloud settings
-//   Fast Raymarch
-#define CAMERA_RAY_STEPS 32
-#define  LIGHT_RAY_STEPS 8
-//   Slow Raymarch
-//#define CAMERA_RAY_STEPS 64
-//#define  LIGHT_RAY_STEPS 12
-
-// Dithering (removes artifacts from discrete ray sampling as a result of large-ish step size)
-#define CLOUD_BLUE_NOISE
-
-// Cast shadows from the background -> the clouds. Very pretty!!! but extremely slow. 
-//#define CLOUD_SHADOW_CAST
 
 //========================================================
 // MESS WITH THESE AT YOUR OWN PERIL
