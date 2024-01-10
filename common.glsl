@@ -40,7 +40,7 @@
 //========================================================
 // COLOUR SCHEMES :)
 //   0 = sunset, 1 = night, 2 = blue moon, 3 = day
-#define COLOUR_SCHEME 1
+#define COLOUR_SCHEME 0
 
 //========================================================
 // RENDERING PARAMS
@@ -49,7 +49,7 @@
 #define STARS
 
 // Use orbit controls (debug cam)
-//#define USE_ORBIT_CAMERA
+#define USE_ORBIT_CAMERA
 
 // Increasing max steps can help render objects at oblique angles
 #define RAYMARCH_MAX_STEPS 128

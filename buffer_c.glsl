@@ -53,11 +53,10 @@
 #define PI  3.14159265
 #define TAU 6.28318533
 
-// Debug (Orbital Mouse Controls) camera settings
+// Debug (Orbital Mouse Controls) camera settings. Enable in common.
 //    Feel free to take a look around the scene from a different view ^^
-//#define USE_DEBUG_CAMERA
-#define DEBUG_CAMERA_DIST 1.0
-#define DEBUG_CAMERA_TARGET vec3(0.0, 0.0, 0.0)
+#define ORBIT_CAMERA_DIST 1.15
+#define ORBIT_CAMERA_TARGET vec3(0.0, -.1, 0.0)
 
 // Cinematic camera settings
 #define CAMERA_DIST 1.15
@@ -67,8 +66,9 @@
 // Debug Rendering settings
 #define RENDER_ROPE
 #define RENDER_PILLARS
-#define RENDER_BRIDGES
+//#define RENDER_BRIDGES
 #define RENDER_CLOUDS
+#define RENDER_FOG
 
 //--Bridge Construction Params-----------------------------------------------------------------------------------------------------
 const float _BelowCloudBottom = 5.0;
@@ -207,7 +207,6 @@ const vec3  _LightDir = normalize(_SunPos);
 
 const float _HorizonOffset = 0.0;
 
-const float _FogDistBias = 800.0;
 const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
 
 const float _StarDist = 300.0;
@@ -223,36 +222,45 @@ const float _StarTwinkleSpeed = 1.5;
 //----0: Sunset----------------------------------------------------------------------------------------------------
 #if COLOUR_SCHEME == 0
 // Sun
-const float _SunSize = 3.5;
+const float _SunSize = 3.0;
 const vec3  _SunCol = vec3(0.98, 0.72, 0.31);
-const float _SunBrightness = 1.4;
+const float _SunBrightness = 0.6;
 const float _SunHaloAttenuation = 1.4;
 const float _SunHaloRadius = 3.0;
 
 // Atmosphere
-const vec3 _ZenithCol = 0.5 * vec3(0.37, 0.14, 0.43);
-const vec3 _HorizonCol = 1.5 * vec3(0.36, 0.17, 0.66);
-const vec3 _NadirCol = vec3(0.35, 0.32, 0.8);
+const vec3 _ZenithCol = vec3(0.118, 0.106, 0.529);
+const vec3 _HorizonCol = vec3(1.0, 0.587, 0.447);
+const vec3 _NadirCol = vec3(1.0, 0.631, 0.392);
 
-const float _ZenithAttenuation = 1.8;
+const float _ZenithAttenuation = 1.4;
 const float _NadirAttenuation  = 1.2;
 
+// Clouds
+const vec3  _CloudLightCol = mix(_SunCol, vec3(0.65, 0.8, 1.0), 0.7);
+const float _CloudAmbientWeightLow = 0.4;
+const float _CloudAmbientWeightHigh = 1.0;
+
 // Fog
-const vec3  _FogColour = _HorizonCol;
-const float _FogSunIntensity = 0.15;
-const float _FogSunAttenuation = 18.0;
+const float _FogDistBias = 1000.0;
+const vec3  _FogColour = mix(0.93*_HorizonCol, _ZenithCol, 0.5);
+const float _FogSunIntensity = 0.9;
+const float _FogSunAttenuation = 9.0;
 
 // Materials
-const vec3 _MatRope = 0.60*vec3(0.95, 0.89, 0.74);
-const vec3 _RopeTerminatorLineCol = 0.8 * vec3(1.0, 0.329, 0.518);
+const float _RopeShadowDarkness = 0.05; // higher is lighter
 
+const vec3 _MatRope = 0.75*vec3(0.89, 0.631, 0.341);
+const vec3 _RopeTerminatorLineCol = 0.6 * vec3(0.902, 0.169, 0.169);
+
+const float _MatShideAmbientCoeff = 0.1;
+const float _MatShideSSSCoeff = 0.25;
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
-const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.412, 0.412);
+const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.242, 0.242);
 
-const vec3 _MatPillarStone = 0.8*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAlt = 0.8*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAltFre = vec3(0.471, 0.737, 0.941);
-const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
+const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneAlt = 0.4*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneAltFre = 1.35*vec3(0.00, 0.243, 0.502);
 #endif
 
 //----1: Night-----------------------------------------------------------------------------------------------------
@@ -260,34 +268,43 @@ const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 // Sun
 const float _SunSize = 3.0;
 const vec3  _SunCol = vec3(0.65, 0.8, 1.0);
-const float _SunBrightness = 1.0;
+const float _SunBrightness = 0.9;
 const float _SunHaloAttenuation = 2.0;
 const float _SunHaloRadius = 2.0;
 
 // Atmosphere
 const vec3 _ZenithCol = 0.02 * vec3(0.32, 0.65, 1.0);
-const vec3 _HorizonCol = 0.08 * vec3(0.32, 0.65, 1.0);
+const vec3 _HorizonCol = 0.065 * vec3(0.32, 0.65, 1.0);
 const vec3 _NadirCol = 0.02 * vec3(0.32, 0.65, 1.0);
 
 const float _ZenithAttenuation = 8.8;
 const float _NadirAttenuation  = 0.2;
 
+// Clouds
+const vec3  _CloudLightCol = vec3(0.65, 0.8, 1.0);
+const float _CloudAmbientWeightLow = 4.0;
+const float _CloudAmbientWeightHigh = 8.0;
+
 // Fog
+const float _FogDistBias = 800.0;
 const vec3  _FogColour = _HorizonCol;
 const float _FogSunIntensity = 0.22;
 const float _FogSunAttenuation = 18.0;
 
 // Materials
+const float _RopeShadowDarkness = 0.6; // higher is lighter
+
 const vec3 _MatRope = 0.80*vec3(0.89, 0.631, 0.341);
 const vec3 _RopeTerminatorLineCol = 0.5 * vec3(0.859, 0.761, 0.596);
 
+const float _MatShideAmbientCoeff = 1.0;
+const float _MatShideSSSCoeff = 0.3;
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = vec3(1.0, 1.0, 1.0);
 
 const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
 const vec3 _MatPillarStoneAlt = 0.4*vec3(0.969, 0.961, 0.918);
 const vec3 _MatPillarStoneAltFre = 1.35*vec3(0.00, 0.243, 0.502);
-const vec3 _MatPillarStoneHardlight = vec3(1.0, 0.957, 0.882);
 #endif
 //-----------------------------------------------------------------------------------------------------------------
 
@@ -1047,8 +1064,12 @@ vec3 sky( in vec3 ro, in vec3 rd )
     // Sun
     float halo = pow((_SunHaloRadius/dist), _SunHaloAttenuation);
     vec3 sun = halo * _SunCol;
-    skycol = 1.0 - exp(-(skycol + sun));
-    skycol *= _SunBrightness;
+    vec3 suncol = 1.0 - exp(-sun);
+    suncol *= _SunBrightness;
+    skycol += suncol;
+    
+    //skycol = 1.0 - exp(-(skycol + sun));
+    //skycol *= _SunBrightness;
     
     // Stars
     #if defined(STARS) && COLOUR_SCHEME == 1
@@ -1302,7 +1323,7 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
 
     if (CMP_MAT_LT(m, MAT_ROPE)) 
     {
-        vec3 base_shadow = mix(0.6*_MatRope, _HorizonCol, 0.2);
+        vec3 base_shadow = mix(_RopeShadowDarkness*_MatRope, _HorizonCol, 0.2);
         // TODO: I think this multiplier of the shadow coeff changes the base shadow colour too.
         vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, min(1.0, 4.0 * shadow));
         //vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, shadow);
@@ -1317,11 +1338,10 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
         vec3 mat = (m == MAT_SHIDE) ? _MatShide : _MatShideSecondary;
         // This simple SSS approximation is good enough for sun -> paper.
         float tr_range = t / 5.0;
-        float view_bias = abs(dot(normalize(ro - pos), normalize(pos - _SunPos)));
         float sun_transmission = mapForeground(pos + _LightDir * tr_range).x / tr_range;
-        vec3 sss = 0.3*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
+        vec3 sss = _MatShideSSSCoeff*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
         
-        vec3 base_shadow = mix(0.6*mat, _HorizonCol, 0.2);
+        vec3 base_shadow = mix(0.6*mat, _MatShideAmbientCoeff*_HorizonCol, 0.2);
         
         return sss + mix(base_shadow, mat, shadow);
     }
@@ -1582,8 +1602,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
     t += step_size * ray_offset;
     start_t = -1.0;
 
-    //const vec3 light_col = 100.0 * mix(vec3(0.65, 0.8, 1.0), _SunCol, 0.5);
-    const vec3 light_col = vec3(0.65, 0.8, 1.0) * _CloudLightIntensity;
+    const vec3 light_col = _CloudLightCol * _CloudLightIntensity;
     
     // raymarch
     for(int i = 0; i < CAMERA_RAY_STEPS; i++)
@@ -1600,7 +1619,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
             if (start_t < 0.0) { start_t = t; }
             // Amount of light that reaches the sample point (Li = incident radiance, from rendering eq.)
             
-            vec3 ambient = mix(4.0, 8.0, height)*_HorizonCol;
+            vec3 ambient = mix(_CloudAmbientWeightLow, _CloudAmbientWeightHigh, height)*_HorizonCol;
             //vec3 ambient = vec3(1.0);
             
             // Shadow casting onto the clouds is possible, but extremely expensive.
@@ -1687,7 +1706,9 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     }
     #endif
     
+    #ifdef RENDER_FOG
     col = fog(col, min_t, rd);
+    #endif
     return col;
 }
 
@@ -1719,17 +1740,17 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
 	    // camera & movement
         #ifdef USE_DEBUG_CAMERA
-        vec3 ta = DEBUG_CAMERA_TARGET;
+        vec3 ta = ORBIT_CAMERA_TARGET;
         #else
         vec3 ta = CAMERA_TARGET;
         #endif
         
         vec2 m = iMouse.xy / iResolution.xy-.5;
         vec3 ro; // ray origin
-        #ifdef USE_DEBUG_CAMERA
+        #ifdef USE_ORBIT_CAMERA
         if ( iMouse.x >= 0.0 ) 
         {
-            ro = DEBUG_CAMERA_DIST*vec3(0.8, 0.3, 0.8);
+            ro = ORBIT_CAMERA_DIST*vec3(0.8, 0.3, 0.8);
             ro.yz *= rot(m.y*PI);
             ro.xz *= rot(-m.x*TAU*2.0);
             ro += ta;
