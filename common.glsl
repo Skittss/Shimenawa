@@ -40,7 +40,7 @@
 //========================================================
 // COLOUR SCHEMES :)
 //   0 = sunset, 1 = night, 2 = blue moon, 3 = day
-#define COLOUR_SCHEME 0
+#define COLOUR_SCHEME 3
 
 //========================================================
 // RENDERING PARAMS
@@ -81,7 +81,7 @@
 
 // HDR
 #define EXPOSURE 1.0
-#define BLOOM_INTENSITY 1.5
+#define BLOOM_INTENSITY 1.1
 #define BLOOM_THRESHOLD 1.3
 
 // Tonemappers
@@ -100,7 +100,7 @@
 #define GAMMA 0.4545
 #define BRIGHTNESS 0.0
 #define CONTRAST 1.15
-#define VIGNETTE
+//#define VIGNETTE
 
 //========================================================
 // MESS WITH THESE AT YOUR OWN PERIL

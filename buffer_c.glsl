@@ -66,7 +66,7 @@
 // Debug Rendering settings
 #define RENDER_ROPE
 #define RENDER_PILLARS
-//#define RENDER_BRIDGES
+#define RENDER_BRIDGES
 #define RENDER_CLOUDS
 #define RENDER_FOG
 
@@ -166,8 +166,6 @@ const float _CloudDetailSpeed = -10.0;
 const float _CloudDetailSize = 0.3;
 const float _CloudDetailStrength = 0.2;
 
-const float _CloudLightIntensity = 100.0;
-
 //--Materials----------------------------------------------------------------------------------------------------------------------
 #define MAT_ROPE 1.0
 #define MAT_SHIDE 2.0
@@ -180,30 +178,9 @@ const float _CloudLightIntensity = 100.0;
 #define MAT_PILLAR_GOLD_ALT 9.0
 #define MAT_DEBUG 10000.0
 
-//const vec3 _MatRope = vec3(0.95, 0.89, 0.74);
-
-//const vec3 _RopeTerminatorLineCol = 0.8*vec3(0.49, 0.329, 1.0);
-
-//const vec3 _MatBridgeStone = 2.0*vec3(0.361, 0.329, 0.370);
-const vec3 _MatBridgeStone = 0.35*vec3(0.361, 0.329, 0.370);
-const vec3 _MatBridgeStoneFre = 1.85*vec3(0.00, 0.243, 0.502);
-
-//const vec3 _MatBridgeBrass = vec3(0.940, 0.841, 0.517);
-
-//const vec3 _MatBridgeBrass = vec3(0.840, 0.730, 0.370);
-const vec3 _MatBridgeBrass = 0.5*vec3(0.840, 0.730, 0.370);
-
-const vec3 _MatBridgeBrassSpe = 0.5*vec3(0.370, 0.840, 0.832);
-//const vec3 _MatBridgeBrassSpe = vec3(0.370, 0.840, 0.832);
-
-
 //--Illumination-------------------------------------------------------------------------------------------------------------------
 const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
-//const vec3 _SunPos = vec3(0.2, 56, -40.1);
-
 const vec3  _LightDir = normalize(_SunPos);
-
-//const vec3  _SunCol  = vec3(0.51471, 0.79919, 1.0);
 
 const float _HorizonOffset = 0.0;
 
@@ -229,17 +206,24 @@ const float _SunHaloAttenuation = 1.4;
 const float _SunHaloRadius = 3.0;
 
 // Atmosphere
-const vec3 _ZenithCol = vec3(0.118, 0.106, 0.529);
-const vec3 _HorizonCol = vec3(1.0, 0.587, 0.447);
-const vec3 _NadirCol = vec3(1.0, 0.631, 0.392);
+//const vec3 _ZenithCol = vec3(0.118, 0.106, 0.529);
+//const vec3 _HorizonCol = vec3(1.0, 0.587, 0.447);
+//const vec3 _NadirCol = vec3(1.0, 0.631, 0.392);
+
+const vec3 _ZenithCol = vec3(0.76,0.75,0.95);
+const vec3 _HorizonCol = vec3(0.76,0.75,0.95);
+const vec3 _NadirCol = vec3(0.76,0.75,0.95);
 
 const float _ZenithAttenuation = 1.4;
 const float _NadirAttenuation  = 1.2;
 
 // Clouds
 const vec3  _CloudLightCol = mix(_SunCol, vec3(0.65, 0.8, 1.0), 0.7);
+const float _CloudLightIntensity = 100.0;
+
+const vec3 _CloudAmbientCol = _Horizon_col;
 const float _CloudAmbientWeightLow = 0.4;
-const float _CloudAmbientWeightHigh = 1.0;
+const float _CloudAmbientWeightHigh = 0.8;
 
 // Fog
 const float _FogDistBias = 1000.0;
@@ -249,6 +233,13 @@ const float _FogSunAttenuation = 9.0;
 
 // Materials
 const float _RopeShadowDarkness = 0.05; // higher is lighter
+const float _RopeShadowAmbientAmt = 0.2;
+const float _BridgeShadowDarkness = 0.6;
+const float _BridgeShadowAmbientAmt = 0.15;
+const float _PillarShadowDarkness = 0.015;
+const float _PillarShadowAmbientAmt = 0.45;
+const float _PillarAltShadowDarkness = 0.5;
+const float _PillarAltShadowAmbientAmt = 0.15;
 
 const vec3 _MatRope = 0.75*vec3(0.89, 0.631, 0.341);
 const vec3 _RopeTerminatorLineCol = 0.6 * vec3(0.902, 0.169, 0.169);
@@ -257,6 +248,11 @@ const float _MatShideAmbientCoeff = 0.1;
 const float _MatShideSSSCoeff = 0.25;
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.242, 0.242);
+
+const vec3 _MatBridgeStone = 0.35*vec3(0.361, 0.329, 0.370);
+const vec3 _MatBridgeStoneFre = 1.85*vec3(0.00, 0.243, 0.502);
+const vec3 _MatBridgeBrass = 0.5*vec3(0.840, 0.730, 0.370);
+const vec3 _MatBridgeBrassSpe = 0.5*vec3(0.370, 0.840, 0.832);
 
 const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
 const vec3 _MatPillarStoneAlt = 0.4*vec3(0.969, 0.961, 0.918);
@@ -274,6 +270,7 @@ const float _SunHaloRadius = 2.0;
 
 // Atmosphere
 const vec3 _ZenithCol = 0.02 * vec3(0.32, 0.65, 1.0);
+const vec3 _ZenithBlendCol = _ZenithCol; // No blend
 const vec3 _HorizonCol = 0.065 * vec3(0.32, 0.65, 1.0);
 const vec3 _NadirCol = 0.02 * vec3(0.32, 0.65, 1.0);
 
@@ -282,17 +279,30 @@ const float _NadirAttenuation  = 0.2;
 
 // Clouds
 const vec3  _CloudLightCol = vec3(0.65, 0.8, 1.0);
+const float _CloudLightIntensity = 100.0;
+
+const vec3 _CloudAmbientCol = _HorizonCol;
 const float _CloudAmbientWeightLow = 4.0;
 const float _CloudAmbientWeightHigh = 8.0;
 
 // Fog
 const float _FogDistBias = 800.0;
 const vec3  _FogColour = _HorizonCol;
+const vec3  _CloudFogColour = _HorizonCol;
 const float _FogSunIntensity = 0.22;
 const float _FogSunAttenuation = 18.0;
 
 // Materials
+const vec3 _AmbientLightCol = _HorizonCol;
+
 const float _RopeShadowDarkness = 0.6; // higher is lighter
+const float _RopeShadowAmbientAmt = 0.2;
+const float _BridgeShadowDarkness = 0.6;
+const float _BridgeShadowAmbientAmt = 0.15;
+const float _PillarShadowDarkness = 0.6;
+const float _PillarShadowAmbientAmt = 0.15;
+const float _PillarAltShadowDarkness = 0.5;
+const float _PillarAltShadowAmbientAmt = 0.15;
 
 const vec3 _MatRope = 0.80*vec3(0.89, 0.631, 0.341);
 const vec3 _RopeTerminatorLineCol = 0.5 * vec3(0.859, 0.761, 0.596);
@@ -302,10 +312,80 @@ const float _MatShideSSSCoeff = 0.3;
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = vec3(1.0, 1.0, 1.0);
 
+const vec3 _MatBridgeStone = 0.35*vec3(0.361, 0.329, 0.370);
+const vec3 _MatBridgeStoneFre = 1.85*vec3(0.00, 0.243, 0.502);
+const vec3 _MatBridgeBrass = 0.5*vec3(0.840, 0.730, 0.370);
+const vec3 _MatBridgeBrassSpe = 0.9*_SunCol;
+
 const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAlt = 0.4*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneAlt = 0.6*vec3(0.969, 0.961, 0.918);
 const vec3 _MatPillarStoneAltFre = 1.35*vec3(0.00, 0.243, 0.502);
 #endif
+
+//----3: Day-------------------------------------------------------------------------------------------------------
+#if COLOUR_SCHEME == 3
+// Sun
+const float _SunSize = 3.0;
+const vec3  _SunCol = vec3(0.98, 0.72, 0.31);
+const float _SunBrightness = 0.9;
+const float _SunHaloAttenuation = 1.4;
+const float _SunHaloRadius = 3.0;
+
+// Atmosphere
+const vec3 _ZenithCol = vec3(0.008, 0.067, 0.188);
+const vec3 _ZenithBlendCol = vec3(0.157, 0.306, 0.561);
+const vec3 _HorizonCol = 0.9*vec3(0.922, 0.898, 0.843);
+const vec3 _NadirCol = _HorizonCol;
+
+const float _ZenithAttenuation = 7.4;
+const float _NadirAttenuation  = 1.0;
+
+// Clouds
+const vec3  _CloudLightCol = _HorizonCol;
+//   Some of the clouds are blown out in this scheme because of this intsensity, but the silhouette remains, so meh.
+const float _CloudLightIntensity = 65.0; 
+
+const vec3 _CloudAmbientCol = vec3(0.776, 0.890, 0.952);
+const float _CloudAmbientWeightLow = 0.6;
+const float _CloudAmbientWeightHigh = 1.5;
+
+// Fog
+const float _FogDistBias = 1000.0;
+const vec3  _FogColour = mix(_HorizonCol, _ZenithBlendCol, 0.65);
+const vec3  _CloudFogColour = _HorizonCol;
+const float _FogSunIntensity = 0.6;
+const float _FogSunAttenuation = 6.0;
+
+// Materials
+const vec3 _AmbientLightCol = _ZenithBlendCol;
+
+const float _RopeShadowDarkness = 0.2; // higher is lighter
+const float _RopeShadowAmbientAmt = 0.27;
+const float _BridgeShadowDarkness = 0.025;
+const float _BridgeShadowAmbientAmt = 0.45;
+const float _PillarShadowDarkness = 0.015;
+const float _PillarShadowAmbientAmt = 0.45;
+const float _PillarAltShadowDarkness = 0.015;
+const float _PillarAltShadowAmbientAmt = 0.45;
+
+const vec3 _MatRope = 0.80*vec3(0.902, 0.714, 0.475);
+const vec3 _RopeTerminatorLineCol = 0.6 * vec3(0.878, 0.204, 0.02);
+
+const float _MatShideAmbientCoeff = 0.5;
+const float _MatShideSSSCoeff = 0.25;
+const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
+const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.242, 0.242);
+
+const vec3 _MatBridgeStone = 1.35*mix(2.0*vec3(0.98, 0.671, 0.329), 1.52*vec3(0.941, 0.941, 0.866), 0.36);
+const vec3 _MatBridgeStoneFre = 2.0*vec3(0.00, 0.243, 0.502);
+const vec3 _MatBridgeBrass = 0.8*vec3(0.840, 0.730, 0.370);
+const vec3 _MatBridgeBrassSpe = 0.9*_SunCol;
+
+const vec3 _MatPillarStone = _MatBridgeStone;
+const vec3 _MatPillarStoneAlt = _MatBridgeStone;
+const vec3 _MatPillarStoneAltFre = 2.35*vec3(0.00, 0.243, 0.502);
+#endif
+
 //-----------------------------------------------------------------------------------------------------------------
 
 // SSS Sun Outline
@@ -1059,7 +1139,9 @@ vec3 sky( in vec3 ro, in vec3 rd )
     float nadir   = 1.0 - pow(min(1.0, 1.0 + ry), _NadirAttenuation);
     float horizon = 1.0 - zenith - nadir;
     
-    vec3 skycol = zenith * _ZenithCol + nadir * _NadirCol + horizon * _HorizonCol;
+    vec3 zenith_col = mix(_ZenithBlendCol, _ZenithCol, rd.y);
+    
+    vec3 skycol = zenith * zenith_col + nadir * _NadirCol + horizon * _HorizonCol;
         
     // Sun
     float halo = pow((_SunHaloRadius/dist), _SunHaloAttenuation);
@@ -1067,10 +1149,7 @@ vec3 sky( in vec3 ro, in vec3 rd )
     vec3 suncol = 1.0 - exp(-sun);
     suncol *= _SunBrightness;
     skycol += suncol;
-    
-    //skycol = 1.0 - exp(-(skycol + sun));
-    //skycol *= _SunBrightness;
-    
+        
     // Stars
     #if defined(STARS) && COLOUR_SCHEME == 1
     skycol += stars(rd, dist);
@@ -1079,13 +1158,14 @@ vec3 sky( in vec3 ro, in vec3 rd )
     return skycol;
 }
 
-vec3 fog( in vec3 col, in float t, in vec3 rd )
+vec3 fog( in vec3 col, in float t, in vec3 rd, bool cloud )
 {
+    vec3 fog_col = cloud ? _CloudFogColour : _FogColour; // so the clouds can be blended into the horizon separately.
     float amt = 1.0 - exp(-t/_FogDistBias);
     
     // Add some light scattering from the sun
     float sun_factor = max(dot(rd, _LightDir), 0.0);
-    vec3 fog_col = mix( _FogColour, _FogSunIntensity*_SunCol, pow(sun_factor, _FogSunAttenuation) );
+    if (!cloud) fog_col = mix( fog_col, _FogSunIntensity*_SunCol, pow(sun_factor, _FogSunAttenuation) );
     
     return mix(col, fog_col, amt);
 }
@@ -1323,7 +1403,7 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
 
     if (CMP_MAT_LT(m, MAT_ROPE)) 
     {
-        vec3 base_shadow = mix(_RopeShadowDarkness*_MatRope, _HorizonCol, 0.2);
+        vec3 base_shadow = mix(_RopeShadowDarkness*_MatRope, _AmbientLightCol, _RopeShadowAmbientAmt);
         // TODO: I think this multiplier of the shadow coeff changes the base shadow colour too.
         vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, min(1.0, 4.0 * shadow));
         //vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, shadow);
@@ -1341,7 +1421,7 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
         float sun_transmission = mapForeground(pos + _LightDir * tr_range).x / tr_range;
         vec3 sss = _MatShideSSSCoeff*_SunCol * smoothstep(0.0, 1.0, sun_transmission);
         
-        vec3 base_shadow = mix(0.6*mat, _MatShideAmbientCoeff*_HorizonCol, 0.2);
+        vec3 base_shadow = mix(0.6*mat, _MatShideAmbientCoeff*_AmbientLightCol, 0.2);
         
         return sss + mix(base_shadow, mat, shadow);
     }
@@ -1366,7 +1446,7 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
     if (CMP_MAT_LT(m, MAT_BRIDGE_STONE))
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
-        vec3 base_shadow = mix(0.6*_MatBridgeStone, _HorizonCol, 0.15);
+        vec3 base_shadow = mix(_BridgeShadowDarkness*_MatBridgeStone, _AmbientLightCol, _BridgeShadowAmbientAmt);
         vec3 albedo = _MatBridgeStone + fre *_MatBridgeStoneFre + dot(_LightDir, nor) * _SunCol * 0.15;
         return mix(base_shadow, albedo, shadow);
     }
@@ -1382,23 +1462,23 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
         //ref = smoothstep(0.7, 0.8, ref);
         
         
-        vec3 base_shadow = mix(0.6*_MatBridgeBrass, _HorizonCol, 0.15);
-        vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
-        //vec3 albedo = _MatBridgeBrass + fre * (2.0 * _SunCol * _SunBrightness) + ref * _MatBridgeBrassSpe;
+        vec3 base_shadow = mix(_BridgeShadowDarkness*_MatBridgeBrass, _AmbientLightCol, _BridgeShadowAmbientAmt);
+        //vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
+        vec3 albedo = _MatBridgeBrass + fre * _SunCol * _SunBrightness + ref * _MatBridgeBrassSpe;
         
         return mix(base_shadow, albedo, shadow);
     }
     else if (CMP_MAT_LT(m, MAT_PILLAR_STONE))
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
-        vec3 base_shadow = mix(0.6*_MatPillarStone, _HorizonCol, 0.15);
+        vec3 base_shadow = mix(_PillarShadowDarkness*_MatPillarStone, _AmbientLightCol, _PillarShadowAmbientAmt);
         vec3 albedo = _MatPillarStone + fre *_SunCol * _SunBrightness + _SunCol * 0.1 * dot(nor, _LightDir);
         return mix(base_shadow, albedo, shadow);
     }
     else if (CMP_MAT_LT(m, MAT_PILLAR_STONE_ALT))
     {
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
-        vec3 base_shadow = mix(0.5*_MatPillarStoneAlt, _HorizonCol, 0.15);
+        vec3 base_shadow = mix(_PillarAltShadowDarkness*_MatPillarStoneAlt, _AmbientLightCol, _PillarAltShadowAmbientAmt);
         vec3 albedo = mix(base_shadow, _MatPillarStoneAlt, shadow);
         
         return mix(albedo, _MatPillarStoneAltFre, fre);
@@ -1410,9 +1490,9 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
         float fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0 );
         float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
         ref = smoothstep(0.7, 0.8, ref);
-        vec3 base_shadow = mix(0.6*_MatBridgeBrass, _HorizonCol, 0.15);
-        vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
-        //vec3 albedo = _MatBridgeBrass + fre * (2.0 * _SunCol * _SunBrightness) + ref * _MatBridgeBrassSpe;
+        vec3 base_shadow = mix(_PillarShadowDarkness*_MatBridgeBrass, _AmbientLightCol, _PillarShadowAmbientAmt);
+        //vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
+        vec3 albedo = _MatBridgeBrass + fre * _SunCol * _SunBrightness + ref * _MatBridgeBrassSpe;
         
         return mix(base_shadow, albedo, shadow);
     }
@@ -1514,10 +1594,6 @@ float mapCloudDensity(in vec3 p, out float cloudHeight)
     
     //Round the top of the cloud. From "Real-time rendering of volumetric clouds". 
     cloud *= saturate(remap(cloudHeight, 0.8*height, height, 1.0, 0.0));
-    //cloud *= saturate(remap(cloudHeight, 0.8*height, height, 1.0, 0.0));
-    //cloud *= saturate(remap(cloudHeight, 0.0, 0.25 * (1.0-cloud), 0.0, 1.0))
-    //      * saturate(remap(cloudHeight, 0.75 * height, height, 1.0, 0.0));
-
 
     //Animate main shape.
     p += vec3(_CloudShapeSpeed * iTime);
@@ -1619,7 +1695,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
             if (start_t < 0.0) { start_t = t; }
             // Amount of light that reaches the sample point (Li = incident radiance, from rendering eq.)
             
-            vec3 ambient = mix(_CloudAmbientWeightLow, _CloudAmbientWeightHigh, height)*_HorizonCol;
+            vec3 ambient = mix(_CloudAmbientWeightLow, _CloudAmbientWeightHigh, height)*_CloudAmbientCol;
             //vec3 ambient = vec3(1.0);
             
             // Shadow casting onto the clouds is possible, but extremely expensive.
@@ -1680,6 +1756,7 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     col += sunSSSOutline(ro, rd, min_tm.y);
     
     float min_t = min_tm.x; // track smallest t for fog
+    bool min_is_cloud = false; // Also track if cloud hit so we can select between 2 different fogs (better blending)
     
     // --CLOUDS-------------------------------------------------------------------
     #ifdef RENDER_CLOUDS
@@ -1702,12 +1779,13 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     if ( min_tm.x < 0.0 || (cloud_t > 0.0 && cloud_t < min_tm.x) )
     {
         min_t = cloud_t;
+        min_is_cloud = true;
         col = cloud_col + col * cloud_transmittance;
     }
     #endif
     
     #ifdef RENDER_FOG
-    col = fog(col, min_t, rd);
+    col = fog(col, min_t, rd, min_is_cloud);
     #endif
     return col;
 }
