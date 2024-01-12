@@ -146,7 +146,6 @@ const float _RopeSwayAmplitude = 0.007;
 
 //--Cloud Params-------------------------------------------------------------------------------------------------------------------
 const vec3 _CloudSigmaS = vec3(1.0); // Inscattering coeff
-//const vec3 _CloudSigmaS = vec3(1.0, 0.7, 0.7); // Inscattering coeff
 const vec3 _CloudSigmaA = vec3(0.0); // Absorption coeff
 const vec3 _CloudSigmaE = max(_CloudSigmaS + _CloudSigmaA, vec3(1e-6)); // Extinction coeff
 
@@ -1406,18 +1405,13 @@ vec3 shadeForeground(in vec3 ro, in vec3 rd, in float t, in float m)
     float shadow = softShadowForeground(pos - 0.01*rd, _LightDir, 10.0); // Sharp
     float occ = calcAOForeground(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
-    //shadow = (shadow + occ) / 2.0;
-    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
 
     if (CMP_MAT_LT(m, MAT_ROPE)) 
     {
         vec3 base_shadow = mix(_RopeShadowDarkness*_MatRope, _AmbientLightCol, _RopeShadowAmbientAmt);
-        // TODO: I think this multiplier of the shadow coeff changes the base shadow colour too.
         vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, min(1.0, 4.0 * shadow));
-        //vec3 sss_style_mix = mix(base_shadow, _RopeTerminatorLineCol, shadow);
         
         vec3 albedo = mix(sss_style_mix, _MatRope, min(1.0, 2.0 * shadow));
-        //vec3 albedo = mix(base_shadow, _MatRope, shadow);
                
         return albedo;
     }
@@ -1448,8 +1442,6 @@ vec3 shadeBackground(in vec3 ro, in vec3 rd, in float t, in float m)
     float shadow = softShadowBackground(pos - 0.01*rd, _LightDir, 15.0); // Sharp
     float occ = calcAOBackground(pos, nor);
     shadow = pow(occ, 2.0) * (shadow + _RopeExtraShadowBrightness) / (1.0 + _RopeExtraShadowBrightness);
-    //shadow = (shadow + occ) / 2.0;
-    //float shadow = softShadow(pos - 0.01*rd, _LightDir, 0.002, 1.0, 0.4);
     
     if (CMP_MAT_LT(m, MAT_BRIDGE_STONE))
     {
@@ -1464,14 +1456,8 @@ vec3 shadeBackground(in vec3 ro, in vec3 rd, in float t, in float m)
         
         float ref = dot(rd, reflect(_LightDir, nor));
         ref = smoothstep(0.5, 0.6, ref);
-        //ref = smoothstep(0.7, 0.8, ref);
-
-        //float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
-        //ref = smoothstep(0.7, 0.8, ref);
-        
         
         vec3 base_shadow = mix(_BridgeShadowDarkness*_MatBridgeBrass, _AmbientLightCol, _BridgeShadowAmbientAmt);
-        //vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
         vec3 albedo = _MatBridgeBrass + fre * _SunCol * _SunBrightness + ref * _MatBridgeBrassSpe;
         
         return mix(base_shadow, albedo, shadow);
@@ -1490,8 +1476,6 @@ vec3 shadeBackground(in vec3 ro, in vec3 rd, in float t, in float m)
         vec3 albedo = mix(base_shadow, _MatPillarStoneAlt, shadow);
         
         return mix(albedo, _MatPillarStoneAltFre, fre);
-        //+ fre *_MatPillarStoneAltFre * _SunBrightness;
-        return mix(base_shadow, albedo, shadow);
     }
     else if (CMP_MAT_LT(m, MAT_PILLAR_GOLD_ALT)) // Covers both alt and non-alt mats.
     {
@@ -1499,7 +1483,6 @@ vec3 shadeBackground(in vec3 ro, in vec3 rd, in float t, in float m)
         float ref = dot(reflect(rd, nor), normalize(_SunPos - pos));
         ref = smoothstep(0.7, 0.8, ref);
         vec3 base_shadow = mix(_PillarShadowDarkness*_MatBridgeBrass, _AmbientLightCol, _PillarShadowAmbientAmt);
-        //vec3 albedo = _MatBridgeBrass + (fre + ref) * (_SunCol * _SunBrightness);
         vec3 albedo = _MatBridgeBrass + fre * _SunCol * _SunBrightness + ref * _MatBridgeBrassSpe;
         
         return mix(base_shadow, albedo, shadow);
@@ -1707,7 +1690,6 @@ vec3 renderClouds(in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tran
             // Amount of light that reaches the sample point (Li = incident radiance, from rendering eq.)
             
             vec3 ambient = mix(_CloudAmbientWeightLow, _CloudAmbientWeightHigh, height)*_CloudAmbientCol;
-            //vec3 ambient = vec3(1.0);
             
             // Shadow casting onto the clouds is possible, but extremely expensive.
             //   This is even when approximating, as an exact shadow cast should compute the shadow on each light ray sample.

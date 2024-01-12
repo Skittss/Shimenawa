@@ -41,7 +41,6 @@
 // COLOUR SCHEMES :)
 //   0 = day, 1 = sunset, 2 = night
 #define COLOUR_SCHEME 2
-// I tried to add a unique element for each one! ;)
 //========================================================
 // RENDERING PARAMS
 
