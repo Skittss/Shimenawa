@@ -143,6 +143,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     #if POSTPROCESS
     col = CONTRAST * (col - vec3(0.5)) + vec3(0.5);  // Contrast
     col = BRIGHTNESS + col;                          // Brightness
+    col = TINT * col;                                // Colour tint
     
     #ifdef VIGNETTE
     col *= 0.8 + 0.3*sqrt( 16.0*uv.x*uv.y*(1.0-uv.x)*(1.0-uv.y) ); // Vignette

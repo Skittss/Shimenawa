@@ -178,153 +178,11 @@ const float _CloudDetailStrength = 0.2;
 #define MAT_PILLAR_GOLD_ALT 9.0
 #define MAT_DEBUG 10000.0
 
-//--Illumination-------------------------------------------------------------------------------------------------------------------
-const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
-const vec3  _LightDir = normalize(_SunPos);
-
-const float _HorizonOffset = 0.0;
-
-const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
-
-const float _StarDist = 300.0;
-const float _StarRepetitions = 4.0;
-const vec3  _StarCol = vec3(1.0);
-const float _StarIntensityContrast = 2.0; // this is an exponent
-const float _Star_Y_Cutoff = -0.1; // in range [-1, 1]: normalized ray direction
-const float _StarHorizonFadeStrength = 0.16;
-const float _StarSunFadeSrength = 15.0;
-const float _StarTwinkleSpeed = 1.5;
-
 //--Colour Schemes-----------------------------------------------------------------------------------------------------------------
-//----0: Sunset----------------------------------------------------------------------------------------------------
+//----0: Day-------------------------------------------------------------------------------------------------------
 #if COLOUR_SCHEME == 0
 // Sun
-const float _SunSize = 3.0;
-const vec3  _SunCol = vec3(0.98, 0.72, 0.31);
-const float _SunBrightness = 0.6;
-const float _SunHaloAttenuation = 1.4;
-const float _SunHaloRadius = 3.0;
-
-// Atmosphere
-//const vec3 _ZenithCol = vec3(0.118, 0.106, 0.529);
-//const vec3 _HorizonCol = vec3(1.0, 0.587, 0.447);
-//const vec3 _NadirCol = vec3(1.0, 0.631, 0.392);
-
-const vec3 _ZenithCol = vec3(0.76,0.75,0.95);
-const vec3 _HorizonCol = vec3(0.76,0.75,0.95);
-const vec3 _NadirCol = vec3(0.76,0.75,0.95);
-
-const float _ZenithAttenuation = 1.4;
-const float _NadirAttenuation  = 1.2;
-
-// Clouds
-const vec3  _CloudLightCol = mix(_SunCol, vec3(0.65, 0.8, 1.0), 0.7);
-const float _CloudLightIntensity = 100.0;
-
-const vec3 _CloudAmbientCol = _Horizon_col;
-const float _CloudAmbientWeightLow = 0.4;
-const float _CloudAmbientWeightHigh = 0.8;
-
-// Fog
-const float _FogDistBias = 1000.0;
-const vec3  _FogColour = mix(0.93*_HorizonCol, _ZenithCol, 0.5);
-const float _FogSunIntensity = 0.9;
-const float _FogSunAttenuation = 9.0;
-
-// Materials
-const float _RopeShadowDarkness = 0.05; // higher is lighter
-const float _RopeShadowAmbientAmt = 0.2;
-const float _BridgeShadowDarkness = 0.6;
-const float _BridgeShadowAmbientAmt = 0.15;
-const float _PillarShadowDarkness = 0.015;
-const float _PillarShadowAmbientAmt = 0.45;
-const float _PillarAltShadowDarkness = 0.5;
-const float _PillarAltShadowAmbientAmt = 0.15;
-
-const vec3 _MatRope = 0.75*vec3(0.89, 0.631, 0.341);
-const vec3 _RopeTerminatorLineCol = 0.6 * vec3(0.902, 0.169, 0.169);
-
-const float _MatShideAmbientCoeff = 0.1;
-const float _MatShideSSSCoeff = 0.25;
-const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
-const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.242, 0.242);
-
-const vec3 _MatBridgeStone = 0.35*vec3(0.361, 0.329, 0.370);
-const vec3 _MatBridgeStoneFre = 1.85*vec3(0.00, 0.243, 0.502);
-const vec3 _MatBridgeBrass = 0.5*vec3(0.840, 0.730, 0.370);
-const vec3 _MatBridgeBrassSpe = 0.5*vec3(0.370, 0.840, 0.832);
-
-const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAlt = 0.4*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAltFre = 1.35*vec3(0.00, 0.243, 0.502);
-#endif
-
-//----1: Night-----------------------------------------------------------------------------------------------------
-#if COLOUR_SCHEME == 1
-// Sun
-const float _SunSize = 3.0;
-const vec3  _SunCol = vec3(0.65, 0.8, 1.0);
-const float _SunBrightness = 0.9;
-const float _SunHaloAttenuation = 2.0;
-const float _SunHaloRadius = 2.0;
-
-// Atmosphere
-const vec3 _ZenithCol = 0.02 * vec3(0.32, 0.65, 1.0);
-const vec3 _ZenithBlendCol = _ZenithCol; // No blend
-const vec3 _HorizonCol = 0.065 * vec3(0.32, 0.65, 1.0);
-const vec3 _NadirCol = 0.02 * vec3(0.32, 0.65, 1.0);
-
-const float _ZenithAttenuation = 8.8;
-const float _NadirAttenuation  = 0.2;
-
-// Clouds
-const vec3  _CloudLightCol = vec3(0.65, 0.8, 1.0);
-const float _CloudLightIntensity = 100.0;
-
-const vec3 _CloudAmbientCol = _HorizonCol;
-const float _CloudAmbientWeightLow = 4.0;
-const float _CloudAmbientWeightHigh = 8.0;
-
-// Fog
-const float _FogDistBias = 800.0;
-const vec3  _FogColour = _HorizonCol;
-const vec3  _CloudFogColour = _HorizonCol;
-const float _FogSunIntensity = 0.22;
-const float _FogSunAttenuation = 18.0;
-
-// Materials
-const vec3 _AmbientLightCol = _HorizonCol;
-
-const float _RopeShadowDarkness = 0.6; // higher is lighter
-const float _RopeShadowAmbientAmt = 0.2;
-const float _BridgeShadowDarkness = 0.6;
-const float _BridgeShadowAmbientAmt = 0.15;
-const float _PillarShadowDarkness = 0.6;
-const float _PillarShadowAmbientAmt = 0.15;
-const float _PillarAltShadowDarkness = 0.5;
-const float _PillarAltShadowAmbientAmt = 0.15;
-
-const vec3 _MatRope = 0.80*vec3(0.89, 0.631, 0.341);
-const vec3 _RopeTerminatorLineCol = 0.5 * vec3(0.859, 0.761, 0.596);
-
-const float _MatShideAmbientCoeff = 1.0;
-const float _MatShideSSSCoeff = 0.3;
-const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
-const vec3 _MatShideSecondary = vec3(1.0, 1.0, 1.0);
-
-const vec3 _MatBridgeStone = 0.35*vec3(0.361, 0.329, 0.370);
-const vec3 _MatBridgeStoneFre = 1.85*vec3(0.00, 0.243, 0.502);
-const vec3 _MatBridgeBrass = 0.5*vec3(0.840, 0.730, 0.370);
-const vec3 _MatBridgeBrassSpe = 0.9*_SunCol;
-
-const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAlt = 0.6*vec3(0.969, 0.961, 0.918);
-const vec3 _MatPillarStoneAltFre = 1.35*vec3(0.00, 0.243, 0.502);
-#endif
-
-//----3: Day-------------------------------------------------------------------------------------------------------
-#if COLOUR_SCHEME == 3
-// Sun
+const vec3  _SunPos  = vec3(30.0, 30.0, 30.0);
 const float _SunSize = 3.0;
 const vec3  _SunCol = vec3(0.98, 0.72, 0.31);
 const float _SunBrightness = 0.9;
@@ -376,8 +234,8 @@ const float _MatShideSSSCoeff = 0.25;
 const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
 const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.242, 0.242);
 
-const vec3 _MatBridgeStone = 1.35*mix(2.0*vec3(0.98, 0.671, 0.329), 1.52*vec3(0.941, 0.941, 0.866), 0.36);
-const vec3 _MatBridgeStoneFre = 2.0*vec3(0.00, 0.243, 0.502);
+const vec3 _MatBridgeStone = 2.0*mix(vec3(0.98, 0.671, 0.329), vec3(0.941, 0.941, 0.866), 0.56);
+const vec3 _MatBridgeStoneFre = 1.0*vec3(0.00, 0.243, 0.502);
 const vec3 _MatBridgeBrass = 0.8*vec3(0.840, 0.730, 0.370);
 const vec3 _MatBridgeBrassSpe = 0.9*_SunCol;
 
@@ -386,7 +244,154 @@ const vec3 _MatPillarStoneAlt = _MatBridgeStone;
 const vec3 _MatPillarStoneAltFre = 2.35*vec3(0.00, 0.243, 0.502);
 #endif
 
-//-----------------------------------------------------------------------------------------------------------------
+//----1: Sunset----------------------------------------------------------------------------------------------------
+#if COLOUR_SCHEME == 1
+// Sun
+const vec3  _SunPos  = vec3(30.0, 10.0, 30.0);
+const float _SunSize = 3.0;
+const vec3  _SunCol = vec3(1.0, 0.529, 0.275);
+const float _SunBrightness = 0.7;
+const float _SunHaloAttenuation = 1.0;
+const float _SunHaloRadius = 3.0;
+
+const vec3 tst = vec3 (0.051, 0.063, 0.278);
+const vec3 tst2 = vec3(0.173, 0.173, 0.388);
+const vec3 tst3 = 1.2*vec3(0.961, 0.586, 0.290);
+
+// Atmosphere
+const vec3 _ZenithCol = tst;
+const vec3 _ZenithBlendCol = tst2;
+const vec3 _HorizonCol = tst3;
+const vec3 _NadirCol = _HorizonCol;
+
+const float _ZenithAttenuation = 3.5;
+const float _NadirAttenuation  = 1.0;
+
+// Clouds
+const vec3  _CloudLightCol = _HorizonCol;
+//   Some of the clouds are blown out in this scheme because of this intsensity, but the silhouette remains, so meh.
+const float _CloudLightIntensity = 65.0; 
+
+const vec3 _CloudAmbientCol = vec3(0.902, 0.828, 0.702);
+const float _CloudAmbientWeightLow = 0.6;
+const float _CloudAmbientWeightHigh = 1.5;
+
+// Fog
+const float _FogDistBias = 1000.0;
+const vec3  _FogColour = mix(_HorizonCol, _ZenithBlendCol, 0.65);
+const vec3  _CloudFogColour = _HorizonCol;
+const float _FogSunIntensity = 0.6;
+const float _FogSunAttenuation = 6.0;
+
+// Materials
+const vec3 _AmbientLightCol = mix(_ZenithBlendCol, _HorizonCol, 0.3);
+
+const float _RopeShadowDarkness = 0.2; // higher is lighter
+const float _RopeShadowAmbientAmt = 0.27;
+const float _BridgeShadowDarkness = 0.025;
+const float _BridgeShadowAmbientAmt = 0.45;
+const float _PillarShadowDarkness = 0.010;
+const float _PillarShadowAmbientAmt = 0.45;
+const float _PillarAltShadowDarkness = 0.015;
+const float _PillarAltShadowAmbientAmt = 0.45;
+
+const vec3 _MatRope = 0.80*vec3(0.902, 0.714, 0.475);
+const vec3 _RopeTerminatorLineCol = 0.8 * vec3(0.71, 0.043, 0.043);
+
+const float _MatShideAmbientCoeff = 0.5;
+const float _MatShideSSSCoeff = 0.25;
+const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
+const vec3 _MatShideSecondary = 0.8*vec3(1.0, 0.242, 0.242);
+
+const vec3 _MatBridgeStone = 1.5*mix(vec3(0.98, 0.671, 0.329), vec3(0.941, 0.941, 0.866), 0.56);
+const vec3 _MatBridgeStoneFre = 0.2*vec3(0.71, 0.173, 0.173);
+const vec3 _MatBridgeBrass = vec3(0.902, 0.729, 0.365);
+const vec3 _MatBridgeBrassSpe = 1.5*vec3(0.98, 0.714, 0.298);
+
+const vec3 _MatPillarStone = _MatBridgeStone;
+const vec3 _MatPillarStoneAlt = _MatBridgeStone;
+const vec3 _MatPillarStoneAltFre = 3.85*vec3(0.541, 0.159, 0.159);
+#endif
+
+//----2: Night-----------------------------------------------------------------------------------------------------
+#if COLOUR_SCHEME == 2
+// Sun
+const vec3  _SunPos  = vec3(30.0, 20.0, 30.0);
+const float _SunSize = 3.0;
+const vec3  _SunCol = vec3(0.65, 0.8, 1.0);
+const float _SunBrightness = 0.9;
+const float _SunHaloAttenuation = 2.0;
+const float _SunHaloRadius = 2.0;
+
+// Atmosphere
+const vec3 _ZenithCol = vec3(0.0064, 0.013, 0.02);
+const vec3 _ZenithBlendCol = _ZenithCol; // No blend
+const vec3 _HorizonCol = vec3(0.0208, 0.04225, 0.065);
+const vec3 _NadirCol = vec3(0.0064, 0.013, 0.02);
+
+const float _ZenithAttenuation = 8.8;
+const float _NadirAttenuation  = 0.2;
+
+// Clouds
+const vec3  _CloudLightCol = vec3(0.65, 0.8, 1.0);
+const float _CloudLightIntensity = 100.0;
+
+const vec3 _CloudAmbientCol = _HorizonCol;
+const float _CloudAmbientWeightLow = 4.0;
+const float _CloudAmbientWeightHigh = 8.0;
+
+// Fog
+const float _FogDistBias = 800.0;
+const vec3  _FogColour = _HorizonCol;
+const vec3  _CloudFogColour = _HorizonCol;
+const float _FogSunIntensity = 0.22;
+const float _FogSunAttenuation = 18.0;
+
+// Materials
+const vec3 _AmbientLightCol = _HorizonCol;
+
+const float _RopeShadowDarkness = 0.6; // higher is lighter
+const float _RopeShadowAmbientAmt = 0.2;
+const float _BridgeShadowDarkness = 0.6;
+const float _BridgeShadowAmbientAmt = 0.15;
+const float _PillarShadowDarkness = 0.6;
+const float _PillarShadowAmbientAmt = 0.15;
+const float _PillarAltShadowDarkness = 0.5;
+const float _PillarAltShadowAmbientAmt = 0.15;
+
+const vec3 _MatRope = 0.80*vec3(0.89, 0.631, 0.341);
+const vec3 _RopeTerminatorLineCol = 0.5 * vec3(0.859, 0.761, 0.596);
+
+const float _MatShideAmbientCoeff = 1.0;
+const float _MatShideSSSCoeff = 0.3;
+const vec3 _MatShide = vec3(1.0, 1.0, 1.0);
+const vec3 _MatShideSecondary = vec3(1.0, 1.0, 1.0);
+
+const vec3 _MatBridgeStone = 0.35*vec3(0.361, 0.329, 0.370);
+const vec3 _MatBridgeStoneFre = 1.85*vec3(0.00, 0.243, 0.502);
+const vec3 _MatBridgeBrass = 0.5*vec3(0.840, 0.730, 0.370);
+const vec3 _MatBridgeBrassSpe = 0.9*_SunCol;
+
+const vec3 _MatPillarStone = 0.15*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneAlt = 0.6*vec3(0.969, 0.961, 0.918);
+const vec3 _MatPillarStoneAltFre = 1.35*vec3(0.00, 0.243, 0.502);
+#endif
+
+//--Illumination-------------------------------------------------------------------------------------------------------------------
+const vec3  _LightDir = normalize(_SunPos);
+
+const float _HorizonOffset = 0.0;
+
+const float _RopeExtraShadowBrightness = 0.025; // Set to zero for flat shaded look
+
+const float _StarDist = 300.0;
+const float _StarRepetitions = 4.0;
+const vec3  _StarCol = vec3(1.0);
+const float _StarIntensityContrast = 2.0; // this is an exponent
+const float _Star_Y_Cutoff = -0.1; // in range [-1, 1]: normalized ray direction
+const float _StarHorizonFadeStrength = 0.16;
+const float _StarSunFadeSrength = 15.0;
+const float _StarTwinkleSpeed = 1.5;
 
 // SSS Sun Outline
 const vec3  _OutlineCol = _SunCol;
@@ -431,7 +436,7 @@ float henyeyGreenstein(float g, float costh)
 //==SDF===========================================================================================================================================
 
 //--Shimenawa----------------------------------------------------------------------------------------------------------------------
-float sdHalo( in vec3 p, in float r ) // Unused
+float sdHalo(in vec3 p, in float r) // Unused
 {
     // Ring
     float d = sdTorus(p, vec2(r, 0.008));
@@ -457,7 +462,7 @@ float sdHalo( in vec3 p, in float r ) // Unused
     return d;
 }
 
-float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
+float sdShide(in vec3 p, in int s_n, in float sec_id, out float seg_id)
 {
     // 紙垂 (Shide) Multiple zig-zag boxes    
     
@@ -477,7 +482,9 @@ float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
     // Thinner box, mount to rope    
     vec3 thinShidePos = p + vec3(.0, -1.5 * dim.y, 0.9 * dim.z);
     // Sinusoidal motion for wind
-    thinShidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id) * distToConnector;
+    thinShidePos.x += _ShideWindParams.x * distToConnector * sin(
+        distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id
+    );
     float d = sdBox(thinShidePos, smallDim);
     
     // Rest of the zig-zag
@@ -485,8 +492,12 @@ float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
     for (int i=0; i<s_n; i++)
     {
         vec3 shidePos = p + vec3(-5.0 * dim.x * mod(float(i+1), 2.0), 2.0 * dim.y * float(i), -dim.z * float(i));
-        shidePos.x += _ShideWindParams.x * sin(distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id) * distToConnector;
-        shidePos.x += _ShideWindParams_s.x * sin(distToConnector * _ShideWindParams_s.y + _ShideWindParams_s.z * iTime + 13.0 * sec_id) * distToConnector;
+        shidePos.x += _ShideWindParams.x * distToConnector * sin(
+            distToConnector * _ShideWindParams.y + _ShideWindParams.z * iTime + 53.0 * sec_id
+        );
+        shidePos.x += _ShideWindParams_s.x * distToConnector * sin(
+            distToConnector * _ShideWindParams_s.y + _ShideWindParams_s.z * iTime + 13.0 * sec_id
+        );
         float d2 = sdBox(shidePos, dim);
         if (d2 < d) {d = d2; seg_id = float(i+1);}
     }
@@ -495,7 +506,7 @@ float sdShide( in vec3 p, in int s_n, in float sec_id, out float seg_id )
 }
 
 // p is position of top, s is scale
-float sdKiraretanawa( in vec3 p, in float s, in float connectorOffset, in float id )
+float sdKiraretanawa(in vec3 p, in float s, in float connectorOffset, in float id)
 {
     // TODO: Scaling is done in the SDF calls (i.e. by scaling dimensions by s), 
     //   but could be done by a simple pre-scaling of the domain (i.e. some q = p / s).
@@ -540,6 +551,7 @@ float sdSwirl(vec3 p, in float r, in float c, in float f, out float id)
 
 vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
 {
+    // しめ縄
     vec2 res = vec2(1e10);
     
     // Bounding sphere
@@ -557,7 +569,6 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     if (dRing < 0.8) // approx bounding ring
     {    
         // I'm fairly confident this local-UV transformation messes up the SDF but... oh well.
-        //vec3 ring_uv = vec3(ring_t * TAU * r, p.y + 0.06*sin(2.0*2.0*PI*ring_t+1.5*time), dRing);
         vec3 ring_uv = vec3(ring_t * TAU * r, p.y, dRing);
         res = vec2(sdSwirl(ring_uv, r, c, f, id), MAT_ROPE);
     }
@@ -598,7 +609,6 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     // TODO: wave ripple effect on rope from each pull of a suspension rope
     vec3 q = p;
     
-    
     float an = TAU/10.0;
     q.xz *= rot(an);
     
@@ -617,12 +627,10 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
     signal *= signal_mask; // apply mask;
     
     q.y -= 0.12*signal;
-    //q.y += 0.06*sin(hash1(sector)*iTime);
     
     float d = sdHalo(q - vec3(0.9*r, 0.25, 0.0), 0.1);
     res = MIN_MAT(res, vec2(d, MAT_SHIDE));
     
-    //res = MIN_MAT(res, vec2(sdTorus(q, vec2(0.1, 0.01)), MAT_SHIDE));
     }
     #endif
     
@@ -633,7 +641,7 @@ vec2 sdShimenawa(in vec3 p, in float r, in float c, in float f, out float id)
 //--Pillars------------------------------------------------------------------------------------------------------------------------
 vec2 sdPillarSeg( 
     in vec3 p, in float r, in float seg_h,
-    in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars )
+    in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars)
 {
     // Radial scale - 1.0 is base scale, can be changed.
     //   Want to keep nice ratio between main pillar radius and the size of objects which comprise the gap,
@@ -729,7 +737,7 @@ vec2 sdPillarSeg(
 
 vec2 sdPillar( 
     in vec3 p, in float n_rep, in float r, in float seg_h, 
-    in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars )
+    in float seg_n_sep, in float seg_n_bevels, in float n_small_pillars)
 {    
     float rs = r / 1.0; // Factor in radial scale of pillar ( see comment in sdPillarSeg() )
     float full_pillar_height = 2.0*(seg_h + rs*_LittlePillar_H) + rs*_PillarCapHeight;
@@ -750,7 +758,7 @@ vec2 sdPillar(
     return res;
 }
 
-vec2 sdPillars( in vec3 p, in vec3 ro )
+vec2 sdPillars(in vec3 p, in vec3 ro)
 {            
     const vec2 spacing = vec2(145.0);
     const float len_spacing = length(spacing);
@@ -819,32 +827,38 @@ vec2 sdPillars( in vec3 p, in vec3 ro )
     
     }
     
-    // TODO: This is not actually id-based but good enough to not be noticeable in most cases
+    // TODO: This is not actually id-based and is in fact just some arbitrary number
     res.x = max(res.x, abs(len_base_id - ring_rad) - ring_thickness);
     
     
     return res;
-
-    // Smaller pillars closer to origin, some really large ones in the distance.
-    //return sdPillar(p + vec3(0.0, 0.0, 0.0), 3.0, 1.0, 1.0);
 }
 
 //--Bridges------------------------------------------------------------------------------------------------------------------------
-vec2 sdBridgeStrut( in vec3 strut_base, in float h ) 
+vec2 sdBridgeStrut(in vec3 strut_base, in float h) 
 {
     vec2 res = vec2(1e10);
     
     // strut beam
     vec3 q = strut_base;
     res = MIN_MAT(res, vec2(
-        sdBox(q, vec3(_BridgeStrutThickness, h, _BridgeStrutThickness)) - _BridgeStrutRoundness, 
+        sdBox(
+            q, 
+            vec3(_BridgeStrutThickness, h, _BridgeStrutThickness)
+        ) - _BridgeStrutRoundness, 
         MAT_BRIDGE_STONE
     ));
 
     // strut-bridge connector wedge
     q = strut_base - vec3(0.0, h - _BridgeWedgeHeight, 0.0);
     res = MIN_MAT(res, vec2(
-        sdPrism(q, _BridgeStrutThickness, _BridgeWedgeTopWidth, _BridgeWedgeHeight, _BridgeStrutThickness) - _BridgeStrutRoundness, 
+        sdPrism(
+            q,
+            _BridgeStrutThickness, 
+            _BridgeWedgeTopWidth, 
+            _BridgeWedgeHeight, 
+            _BridgeStrutThickness
+        ) - _BridgeStrutRoundness, 
         MAT_BRIDGE_STONE
     ));
 
@@ -887,7 +901,8 @@ vec2 sdBridgeStrut( in vec3 strut_base, in float h )
     // top
     q = strut_base;
     q.y += box_frame_top_offset; // translate up along strut
-    q.y = abs(q.y + 0.5 * _BridgeBoxFrameBevelSep) - 0.5 * _BridgeBoxFrameBevelSep; // domain repetition (reflection in xz plane), and center about top bevel.
+     // domain repetition (reflection in xz plane), and center about top bevel.
+    q.y = abs(q.y + 0.5 * _BridgeBoxFrameBevelSep) - 0.5 * _BridgeBoxFrameBevelSep;
     float bevel_width = _BridgeStrutThickness + _BridgeStrutBoxFrameExtrusion + _BridgeBoxFrameBevelExtrusion;
     res = MIN_MAT(res, vec2(
         sdBox(q, vec3(
@@ -922,7 +937,7 @@ vec2 sdBridgeStrut( in vec3 strut_base, in float h )
     return res;
 }
 
-vec2 sdBridgeStrutLOD( in vec3 strut_base, in float h ) 
+vec2 sdBridgeStrutLOD(in vec3 strut_base, in float h) 
 {
     vec2 res = vec2(1e10);
     
@@ -936,14 +951,20 @@ vec2 sdBridgeStrutLOD( in vec3 strut_base, in float h )
     // strut-bridge connector wedge
     q = strut_base - vec3(0.0, h - _BridgeWedgeHeight, 0.0);
     res = MIN_MAT(res, vec2(
-        sdPrism(q, _BridgeStrutThickness, _BridgeWedgeTopWidth, _BridgeWedgeHeight, _BridgeStrutThickness) - _BridgeStrutRoundness, 
+        sdPrism(
+            q, 
+            _BridgeStrutThickness, 
+            _BridgeWedgeTopWidth, 
+            _BridgeWedgeHeight,
+            _BridgeStrutThickness
+        ) - _BridgeStrutRoundness, 
         MAT_BRIDGE_STONE
     ));
     
     return res;
 }
 
-vec2 sdBridgeTop( in vec3 p, in float h, in float l ) 
+vec2 sdBridgeTop(in vec3 p, in float h, in float l) 
 {
     vec2 res = vec2(1e10);
     
@@ -962,7 +983,7 @@ vec2 sdBridgeTop( in vec3 p, in float h, in float l )
     return res;
 }
 
-vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
+vec2 sdBridgeTopStruts(in vec3 p, in float h, in float l)
 {
     vec2 res = vec2(1e10);
     
@@ -987,7 +1008,7 @@ vec2 sdBridgeTopStruts( in vec3 p, in float h, in float l )
     return res;
 }
 
-vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
+vec2 sdBridgeSegment(in vec3 p, in float h, in float l)
 {
     vec2 res = vec2(1e10);
             
@@ -1019,7 +1040,7 @@ vec2 sdBridgeSegment( in vec3 p, in float h, in float l )
     return res;
 }
 
-vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
+vec2 sdBridgeSegmentLOD(in vec3 p, in float h, in float l)
 {
     vec2 res = vec2(1e10);
                 
@@ -1041,7 +1062,7 @@ vec2 sdBridgeSegmentLOD( in vec3 p, in float h, in float l )
     return res;
 }
 
-vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float scale )
+vec2 sdInfiniteBridge(in vec3 p, in vec3 o, in float an, in float h, in float scale)
 {
     bool use_lod = length(p) > BRIDGE_LOD_DIST;
 
@@ -1069,7 +1090,7 @@ vec2 sdInfiniteBridge( in vec3 p, in vec3 o, in float an, in float h, in float s
 }
 
 //==ATMOSPHERE==================================================================================================================================
-vec3 stars( in vec3 rd, in float sun_dist )
+vec3 stars(in vec3 rd, in float sun_dist)
 {
     // TODO: Would love some subtle shooting stars here
 
@@ -1123,7 +1144,7 @@ vec3 stars( in vec3 rd, in float sun_dist )
     return clamp(_StarCol * ray_intensity, 0.0, BLOOM_THRESHOLD); // Don't bloom
 }
 
-vec3 sky( in vec3 ro, in vec3 rd ) 
+vec3 sky(in vec3 ro, in vec3 rd) 
 {
     // Make sun always appear as if viewed from a certain point to deal with the fact it
     //  is infact very close geometrically.
@@ -1151,14 +1172,14 @@ vec3 sky( in vec3 ro, in vec3 rd )
     skycol += suncol;
         
     // Stars
-    #if defined(STARS) && COLOUR_SCHEME == 1
+    #if defined(STARS) && COLOUR_SCHEME == 2
     skycol += stars(rd, dist);
     #endif
     
     return skycol;
 }
 
-vec3 fog( in vec3 col, in float t, in vec3 rd, bool cloud )
+vec3 fog(in vec3 col, in float t, in vec3 rd, bool cloud)
 {
     vec3 fog_col = cloud ? _CloudFogColour : _FogColour; // so the clouds can be blended into the horizon separately.
     float amt = 1.0 - exp(-t/_FogDistBias);
@@ -1171,7 +1192,7 @@ vec3 fog( in vec3 col, in float t, in vec3 rd, bool cloud )
 }
 
 // TODO: I don't think this scales well with distance / object size.
-vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
+vec3 sunSSSOutline(in vec3 ro, in vec3 rd, in float d)
 {
     // Create an outline around objects within a certain radius around the sun.
     //    The view direction dot product can be used to determine the radius.
@@ -1195,7 +1216,7 @@ vec3 sunSSSOutline( in vec3 ro, in vec3 rd, in float d )
 // Note: Splitting SDF & Lighting calculations into fg / bg makes performance and compile time better as 
 //            in this scene they do not need to interact with one another.
 //~~~~~(Background)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-vec2 mapBackground( in vec3 p, in vec3 ro )
+vec2 mapBackground(in vec3 p, in vec3 ro)
 {
     vec2 res = vec2(1e10); // (Distance, Material)
     
@@ -1225,7 +1246,7 @@ vec2 mapBackground( in vec3 p, in vec3 ro )
     return res;
 }
 
-vec3 calcNormalBackground( in vec3 pos )
+vec3 calcNormalBackground(in vec3 pos)
 {
     // klems's trick to prevent the compiler from inlining map() 4 times
     vec3 n = vec3(0.0);
@@ -1238,7 +1259,7 @@ vec3 calcNormalBackground( in vec3 pos )
     return normalize(n);
 }
 
-vec3 intersectBackground( in vec3 ro, in vec3 rd )
+vec3 intersectBackground(in vec3 ro, in vec3 rd)
 {
     vec3 res = vec3(-1.0, 1e10, -1.0);
     
@@ -1260,7 +1281,7 @@ vec3 intersectBackground( in vec3 ro, in vec3 rd )
 }
 
 //~~~~~(Foreground)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-vec2 mapForeground( in vec3 p )
+vec2 mapForeground(in vec3 p)
 {
     vec2 res = vec2(1e10); // (Distance, Material)
 
@@ -1273,7 +1294,7 @@ vec2 mapForeground( in vec3 p )
     return res; // returns (distance, material) pair.
 }
 
-vec3 calcNormalForeground( in vec3 pos )
+vec3 calcNormalForeground(in vec3 pos)
 {
     // klems's trick to prevent the compiler from inlining map() 4 times
     vec3 n = vec3(0.0);
@@ -1285,7 +1306,7 @@ vec3 calcNormalForeground( in vec3 pos )
     return normalize(n);
 }
 
-vec3 intersectForeground( in vec3 ro, in vec3 rd )
+vec3 intersectForeground(in vec3 ro, in vec3 rd)
 {
     vec3 res = vec3(-1.0, 1e10, -1.0);
     
@@ -1309,24 +1330,9 @@ vec3 intersectForeground( in vec3 ro, in vec3 rd )
 //--LIGHTING-----------------------------------------------------------------------------------------------------------------------
 
 //~~~~~(Foreground)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-float calcSSS( in vec3 pos, in vec3 nor )
-{
-    const int N_SAMPLES = 9;
-	float occ = 0.0;
-    for( int i=ZERO; i<N_SAMPLES; i++ )
-    {
-        float h = 0.002 + 0.11*float(i)/7.0;
-        vec3 dir = normalize( sin( float(i)*13.0 + vec3(0.0,2.1,4.2) ) );
-        dir *= sign(dot(dir,nor));
-        occ += (h-mapForeground(pos-h*dir).x);
-    }
-    occ = clamp( 1.0 - 11.0*occ/float(N_SAMPLES), 0.0, 1.0 );    
-    return occ*occ;
-}
-
 // https://iquilezles.org/articles/rmshadows
 // Soft Shadows with backtracking.
-float softShadowForeground( in vec3 ro, in vec3 rd, float k )
+float softShadowForeground(in vec3 ro, in vec3 rd, float k)
 {
     float res = 1.0;
     float t = 0.01;
@@ -1340,7 +1346,9 @@ float softShadowForeground( in vec3 ro, in vec3 rd, float k )
     return clamp(res,0.0,1.0);
 }
 
-float calcAOForeground( in vec3 pos, in vec3 nor )
+// https://www.shadertoy.com/view/ld3Gz2
+//  AO by (pseudo-random) sampling a number of distances to surfaces in a hemisphere about the normal
+float calcAOForeground(in vec3 pos, in vec3 nor)
 {
 	float ao = 0.0;
     for( int i=ZERO; i<int(AO_SAMPLES); i++ )
@@ -1358,7 +1366,7 @@ float calcAOForeground( in vec3 pos, in vec3 nor )
 //~~~~~(Background)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // https://iquilezles.org/articles/rmshadows
 // Soft Shadows with backtracking.
-float softShadowBackground( in vec3 ro, in vec3 rd, float k )
+float softShadowBackground(in vec3 ro, in vec3 rd, float k)
 {
     float res = 1.0;
     float t = 0.01;
@@ -1374,7 +1382,7 @@ float softShadowBackground( in vec3 ro, in vec3 rd, float k )
 
 // https://www.shadertoy.com/view/ld3Gz2
 //  AO by (pseudo-random) sampling a number of distances to surfaces in a hemisphere about the normal
-float calcAOBackground( in vec3 pos, in vec3 nor )
+float calcAOBackground(in vec3 pos, in vec3 nor)
 {
 	float ao = 0.0;
     for( int i=ZERO; i<int(AO_SAMPLES); i++ )
@@ -1391,7 +1399,7 @@ float calcAOBackground( in vec3 pos, in vec3 nor )
 }
 
 //--MATERIALS----------------------------------------------------------------------------------------------------------------------
-vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m ) 
+vec3 shadeForeground(in vec3 ro, in vec3 rd, in float t, in float m) 
 {
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormalForeground(pos);
@@ -1433,7 +1441,7 @@ vec3 shadeForeground( in vec3 ro, in vec3 rd, in float t, in float m )
     return 1.2*col;
 }
 
-vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m ) 
+vec3 shadeBackground(in vec3 ro, in vec3 rd, in float t, in float m) 
 {
     vec3 pos = ro + t*rd;
     vec3 nor = calcNormalBackground(pos);
@@ -1505,9 +1513,9 @@ vec3 shadeBackground( in vec3 ro, in vec3 rd, in float t, in float m )
 }
 
 //--CLOUDS-------------------------------------------------------------------------------------------------------------------------
+// Technique from paper: "Oz: The Great and Volumetric".
 vec3 multipleOctaveScattering(in float extinction, in float mu, in float step_size)
 {
-    // TODO: comments
     vec3 li = vec3(0.0);
     const float OCTAVES = 4.0;
     
@@ -1578,7 +1586,7 @@ float getPerlinWorleyNoise(vec3 pos)
 
 float mapCloud(vec3 p) { return 1.0; }
 
-// Modified from https://www.shadertoy.com/view/3sffzj
+// https://www.shadertoy.com/view/3sffzj
 float mapCloudDensity(in vec3 p, out float cloudHeight)
 {  
     if(!insideAABB(p, _CloudMinCorner, _CloudMaxCorner)) return 0.0;
@@ -1619,7 +1627,7 @@ float mapCloudDensity(in vec3 p, out float cloudHeight)
     return _CloudDensityMultiplier * cloud;
 }
 
-vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi ) 
+vec3 getCloudLi(in vec3 ro, in vec3 p, in float mu, in vec3 wi) 
 {
     // Sample density of volume between sample point p and the light source (wi = incident light dir).
     
@@ -1648,13 +1656,16 @@ vec3 getCloudLi( in vec3 ro, in vec3 p, in float mu, in vec3 wi )
     return mix(powder, beers_law, 0.5 + 0.5 * mu);
 }
 
-vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_transmittance, out float start_t )
+vec3 renderClouds(in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_transmittance, out float start_t)
 {
     /*
     REFERENCE MATERIALS:
     
-    (VOLUMETRIC CLOUD) https://www.shadertoy.com/view/3sffzj
-    
+        (VOLUMETRIC CLOUD) https://www.shadertoy.com/view/3sffzj
+        Geurilla Games: The Real time volumetric cloudscapes of Horizon: Zero Dawn.
+        Phsyically Based Sky, Atmosphere and Cloud Rendering in Frostbite, Sebastien Hillaire.
+        Real-time rendering of volumetric clouds, Fredrik Haggstrom.
+        PBR: From theory to implementation, Section 11.
     */
     
     // We do a raycast through the cloud volume, at each point, figuring out the attenuation of light.
@@ -1730,7 +1741,7 @@ vec3 renderClouds( in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tra
 }
 
 //--CAMERA & RAYMARCHING-----------------------------------------------------------------------------------------------------------
-vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord ) 
+vec3 render(in vec3 ro, in vec3 rd, in vec2 fragCoord) 
 {
     // --SKY----------------------------------------------------------------------
     vec3 col = sky(ro, rd);
@@ -1790,7 +1801,7 @@ vec3 render( in vec3 ro, in vec3 rd, in vec2 fragCoord )
     return col;
 }
 
-mat3 setCamera( in vec3 ro, in vec3 ta, float cr )
+mat3 setCamera(in vec3 ro, in vec3 ta, float cr)
 {
 	vec3 cw = normalize(ta-ro);
 	vec3 cp = vec3(sin(cr), cos(cr),0.0);
@@ -1799,7 +1810,7 @@ mat3 setCamera( in vec3 ro, in vec3 ta, float cr )
     return mat3( cu, cv, cw );
 }
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
+void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     vec3 tot = vec3(0.0);
 

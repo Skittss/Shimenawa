@@ -39,17 +39,17 @@
 
 //========================================================
 // COLOUR SCHEMES :)
-//   0 = sunset, 1 = night, 2 = blue moon, 3 = day
-#define COLOUR_SCHEME 3
-
+//   0 = day, 1 = sunset, 2 = night
+#define COLOUR_SCHEME 2
+// I tried to add a unique element for each one! ;)
 //========================================================
 // RENDERING PARAMS
 
 // Use stars on certain colour schemes
 #define STARS
 
-// Use orbit controls (debug cam)
-#define USE_ORBIT_CAMERA
+// Use orbit controls (debug cam - click and drag.)
+//#define USE_ORBIT_CAMERA
 
 // Increasing max steps can help render objects at oblique angles
 #define RAYMARCH_MAX_STEPS 128
@@ -63,7 +63,7 @@
 //   Fast Raymarch
 #define CAMERA_RAY_STEPS 32
 #define  LIGHT_RAY_STEPS 8
-//   Slow Raymarch - Less noise.
+//   Slow Raymarch - Less edge noise.
 //#define CAMERA_RAY_STEPS 64
 //#define  LIGHT_RAY_STEPS 12
 
@@ -100,6 +100,7 @@
 #define GAMMA 0.4545
 #define BRIGHTNESS 0.0
 #define CONTRAST 1.15
+#define TINT vec3(1.0, 1.0, 1.0)
 //#define VIGNETTE
 
 //========================================================
@@ -115,7 +116,7 @@
 // Util
 
 // https://iquilezles.org/articles/smin
-float smin( float a, float b, float k )
+float smin(float a, float b, float k)
 {
     float h = max(k-abs(a-b),0.0);
     return min(a, b) - h*h*0.25/k;
@@ -170,7 +171,7 @@ float sdCone( vec3 p, vec3 a, vec3 b, float ra, float rb )
 }
 
 // https://iquilezles.org/articles/distfunctions
-float sdCappedCylinder( vec3 p, float h, float r )
+float sdCappedCylinder(vec3 p, float h, float r)
 {
     vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
     return min(max(d.x,d.y),0.0) + length(max(d,0.0));
@@ -178,18 +179,18 @@ float sdCappedCylinder( vec3 p, float h, float r )
 
 float sdInfVerticalCylinder( vec3 p, vec3 c )
 {
-  return length(p.xz-c.xy)-c.z;
+  return length(p.xz - c.xy) - c.z;
 }
 
 // https://iquilezles.org/articles/distfunctions
-float sdBox( vec3 p, vec3 b )
+float sdBox(vec3 p, vec3 b)
 {
   vec3 q = abs(p) - b;
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
 // https://iquilezles.org/articles/distfunctions
-float sdBoxFrame( vec3 p, vec3 b, float e )
+float sdBoxFrame(vec3 p, vec3 b, float e)
 {
     p = abs(p  )-b;
     vec3 q = abs(p+e)-e;
@@ -200,13 +201,13 @@ float sdBoxFrame( vec3 p, vec3 b, float e )
 }
 
 // https://iquilezles.org/articles/distfunctions
-float sdVerticalCapsule( vec3 p, float r, float h )
+float sdVerticalCapsule(vec3 p, float r, float h)
 {
   p.x -= clamp( p.x, 0.0, h );
   return length( p ) - r;
 }
 
-float sdCircleXZ( in vec3 p, in float r, out float t) 
+float sdCircleXZ(in vec3 p, in float r, out float t) 
 {
     float closest_p_theta = atan(p.z, p.x) + 3.14159265;
     t = closest_p_theta / (2.0 * 3.14159265);
@@ -262,14 +263,14 @@ float sdPyramid(vec3 position, float halfWidth, float halfDepth, float halfHeigh
 }
 
 // https://iquilezles.org/articles/distfunctions
-float sdLink( in vec3 p, in float le, in float r1, in float r2 )
+float sdLink(in vec3 p, in float le, in float r1, in float r2)
 {
     vec3 q = vec3( p.x, max(abs(p.y)-le,0.0), p.z );
     return length(vec2(length(q.xy)-r1,q.z)) - r2;
 }
 
 // https://iquilezles.org/articles/distfunctions
-float sdTorus( in vec3 p, in vec2 t )
+float sdTorus(in vec3 p, in vec2 t)
 {
     vec2 q = vec2(length(p.xz)-t.x,p.y);
     return length(q)-t.y;
@@ -279,7 +280,7 @@ float sdTorus( in vec3 p, in vec2 t )
 // Intersectors
 
 // https://iquilezles.org/articles/intersectors
-vec2 iSphere( in vec3 ro, in vec3 rd, in float rad )
+vec2 iSphere(in vec3 ro, in vec3 rd, in float rad)
 {
 	float b = dot( ro, rd );
 	float c = dot( ro, ro ) - rad*rad;
