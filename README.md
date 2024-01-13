@@ -5,7 +5,7 @@ Non-photo-realistically rendered scene using Raymarching and SDFs, meaning that 
 
 Inspired from Genshin Impact's main menu and 'slumbering court' locale.
 
-For more info and implementation details, check out [this blog post!]()
+For more info and implementation details, check out [this blog post!](https://skittss.github.io/PortfolioWebsite/#/projects/Shimenawa)
 <br/><br/>
 
 # Running / Viewing
@@ -27,6 +27,8 @@ Accessible on shadertoy [here.](https://www.shadertoy.com/view/clVyzW)
 - Volume Rendering (for clouds), inspired by PBR techniques and particularly cloud systems developed by [Guerilla Games](https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn).
 
 and lots, and lots of maths!
+
+I explain each of these techniques in more detail [here.](https://skittss.github.io/PortfolioWebsite/#/projects/Shimenawa)
 <br/><br/>
 
 # Colour Schemes
