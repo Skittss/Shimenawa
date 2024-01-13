@@ -12,6 +12,23 @@ For more info and implementation details, check out [this blog post!]()
 Accessible on shadertoy [here.]()
 <br/><br/>
 
+# Techniques Used
+
+- Raymarching
+- Signed distance functions or "SDFs" (implicit surfaces). Including many complexities such as:
+    -   Fast soft shadows
+    -   Ambient Occlusion
+    -   Fast and simple sub-surface scattering
+    -   Acceleration structures (Bounding boxes, and LOD)
+    -   Domain warping, for procedural detail and animation.
+    -   [Domain repetition](http://iquilezles.org/articles/sdfrepetition/) (for performance)
+- HDR Rendering, including buffer pass bloom
+- LDR Post-processing
+- Volume Rendering (for clouds), inspired by PBR techniques and particularly cloud systems developed by [Guerilla Games](https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn).
+
+and lots, and lots of maths!
+<br/><br/>
+
 # Colour Schemes
 <p align="center", width="100%">
 <img width="32%" src="renders/day_thumb.png">
