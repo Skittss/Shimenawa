@@ -18,7 +18,7 @@
     ███  ████████          ████               █████████████████         ████           █████████    
                                                                                                     
 
-    注連縄 (Shimenawa) by Henry A. 
+    注連縄 (Shimenawa) by Henry A.                 (Self: https://www.shadertoy.com/view/clVyzW)
     
     --LAYOUT------------------------------------------------------------------------------------
     
@@ -38,7 +38,7 @@
 */
 
 //==============================================================================================
-//  SOURCE: https://www.shadertoy.com/view/3sffzj)
+//  SOURCE: https://www.shadertoy.com/view/3sffzj
 //  Thank you alro for the noise implementation for the clouds here!
 //==============================================================================================
 

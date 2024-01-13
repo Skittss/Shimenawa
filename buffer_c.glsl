@@ -18,7 +18,7 @@
     ███  ████████          ████               █████████████████         ████           █████████    
                                                                                                     
 
-    注連縄 (Shimenawa) by Henry A. 
+    注連縄 (Shimenawa) by Henry A.                 (Self: https://www.shadertoy.com/view/clVyzW)
     
     --LAYOUT------------------------------------------------------------------------------------
     
