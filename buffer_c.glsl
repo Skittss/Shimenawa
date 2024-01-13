@@ -1644,7 +1644,8 @@ vec3 renderClouds(in vec3 ro, in vec3 rd, in float ray_offset, out vec3 ray_tran
     /*
     REFERENCE MATERIALS:
     
-        (VOLUMETRIC CLOUD) https://www.shadertoy.com/view/3sffzj
+        (VOLUMETRIC CLOUDS) https://www.shadertoy.com/view/3sffzj
+                            https://www.shadertoy.com/view/3dlfWs
         Geurilla Games: The Real time volumetric cloudscapes of Horizon: Zero Dawn.
         Phsyically Based Sky, Atmosphere and Cloud Rendering in Frostbite, Sebastien Hillaire.
         Real-time rendering of volumetric clouds, Fredrik Haggstrom.

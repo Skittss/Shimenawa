@@ -40,7 +40,7 @@
 //========================================================
 // COLOUR SCHEMES :)
 //   0 = day, 1 = sunset, 2 = night
-#define COLOUR_SCHEME 2
+#define COLOUR_SCHEME 0
 //========================================================
 // RENDERING PARAMS
 
