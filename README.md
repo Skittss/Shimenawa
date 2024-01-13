@@ -9,7 +9,7 @@ For more info and implementation details, check out [this blog post!]()
 <br/><br/>
 
 # Running / Viewing
-Accessible on shadertoy [here.]()
+Accessible on shadertoy [here.](https://www.shadertoy.com/view/clVyzW)
 <br/><br/>
 
 # Techniques Used
